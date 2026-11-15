@@ -1,0 +1,52 @@
+Build a real-time, realistic-but-painterly scene of the land around Madinah at golden hour that runs in the
+browser. It only needs to look beautiful and let me walk (and, with a key, fly) through it.
+
+PRIORITIES (in this order when they conflict)
+1. Visual quality
+2. Stable frame pacing at the target spec
+3. Small bundle size
+
+CONSTRAINTS
+- No Three.js/Babylon.js or other engines.
+- WebGPU rendered.
+- Everything procedural: no texture/model/audio files. Deliverable is a single self-contained index.html.
+  Report minified size.
+- Zero per-frame JS allocations (no GC stutter). Preallocate all buffers.
+- No human figures anywhere. No interior of the Prophet's chamber. No synthesized adhan or Qur'an recitation.
+  Buildings are respectful close approximations of the real ones, not replicas; geography is composed and
+  compressed, not to scale.
+
+TARGET
+- Omarchy Linux, Chrome 157, RTX 3070, 60 Hz+ monitor
+- 2560x1440 at full resolution. GPU frame time <= 11 ms average, p99 <= 16 ms during a scripted 60 s
+  fly-through.
+
+SCENE
+- A date-palm grove like the orchards of Quba and Awali: tall palms with heavy, swaying fronds and orange-gold
+  date clusters, mud-brick garden walls, an irrigation channel with still water, a stone well
+- Warm desert air: clear near, a soft golden-to-blue haze with distance, long shadows from a low western sun
+- Light: sun shafts through palm fronds and dust, a warm sky fading to blue overhead with thin high cloud
+- Landforms: the black basalt edge of the harrat lava field (blocky, cracked, rough), a sandy wadi bed with
+  rounded cobbles, a low granite hill to climb, Mount Uhud as a long red-brown granite massif on the
+  northern horizon, Jabal Ayr low and dark to the south
+- Second zone: the black harrat plain to the east with scattered scoria cones and sparse dry shrubs
+- Life: pigeon flocks circling, small birds in the grove, drifting dust motes and pollen in the light
+- Set pieces: Masjid an-Nabawi on the horizon (cream walls, many tall minarets, the Green Dome in the
+  south-east of the old mosque, silver roof domes, open courtyard umbrellas), and a white mosque with domes
+  and four minarets in the style of Masjid Quba at the edge of the grove; a low city of cream and white
+  buildings between them
+- World: bounded, but the boundaries can't be visible from the starting area
+
+CONTROLS
+WASD walk, mouse look (pointer lock), Shift to run, F toggles flight (then Q/E down/up)
+
+VERIFICATION
+- Visual critic: a separate subagent that sees ONLY your renders, never your code or reasoning. Give it 6
+  fixed camera poses, rendered at 2560x1440 in GPU-accelerated Chrome, plus frames sampled from the scripted
+  fly-through to catch shimmer, aliasing, popping and banding. It returns prioritized, concrete defects.
+  Iterate until it reports nothing above "minor".
+- Performance: GPU timestamp queries plus a frame-time log from the scripted fly-through. Report average,
+  99th percentile and max.
+
+DONE WHEN: both verification gates pass. Deliver index.html, the bundle size, the perf report and the
+critic's final review.
