@@ -7,8 +7,8 @@ Built with the `worldsmith` skill (`~/.shared/skills/worldsmith`). Brief: `promp
 - Phase: 5 (critic loop), iteration 11 captured at 2560x1440
 - Last good capture: verify/iter-11 (6 poses, 18 flight frames, perf.txt); minified index.html: 0 errors
 - Perf (iter-11, RTX 3070, 2560x1440, 60 s flight): GPU avg 6.15 ms, p99 6.89, max 7.30 -> gate passes
-- Critic: iter-04 blocker; iter-06..10 major; iter-11 running. PLATEAU: city grid, frond comb, water, walls survived 3+ rounds
-- Next step: save the iter-11 review; then ASK MOEY whether to keep iterating (approach change needed) or ship at the current state. Do not start iteration 12 unasked.
+- Critic: iter-04 blocker; iter-06..11 major (no blockers since iter-06; location and mood confirmed). PLATEAU: palms, city grid, lava foreground, walls/water, shafts survive 3+ rounds of tuning
+- Next step: WAITING FOR MOEY: keep iterating with approach changes (new palm crown geometry, city rework, grove god rays) or ship as-is. Watchdog deleted while waiting.
 - Smoke test passed: walking, F flight up, F back to walking lands under gravity (index.html, 0 errors)
 - Not done yet: phase 6 polish checks (touch, quality levels on Low), README + screenshots, final critic pass
 - Decisions locked with Moey (2026-11-15): land around the Masjid (not the courtyard close-up, not the
