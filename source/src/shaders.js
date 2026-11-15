@@ -105,8 +105,8 @@ fn massif(p: vec2f, c: vec2f, ang: f32, L: f32, W: f32) -> f32 {
     h += c.z * pow(kk, 1.7); gran = max(gran, ss(.04, .3, kk));
   }
   let lf = x - lavaFront(z) - 7. * (fbm(vec3f(x * .02, 3., z * .02), 2) - .5);
-  let lavN = ss(-1.5, 3.5, lf) * ss(-800., -450., z) * ss(1700., 1200., z);
-  let lavF = ss(0., 380., x - 650. - 300. * sin(z * .0006) - 420. * (fbm(vec3f(x * .0012, 8., z * .0012), 3) - .5)) * ss(-2600., -1700., z);
+  let lavN = ss(-1.5, 3.5, lf) * ss(-420., -300., z) * ss(1700., 1200., z);
+  let lavF = ss(0., 380., x - 2300. - 300. * sin(z * .0006) - 420. * (fbm(vec3f(x * .0012, 8., z * .0012), 3) - .5)) * ss(-2600., -1700., z);
   let lavS = ss(0., 600., x + z * .6 - 1900.);
   var lava = max(max(lavN, lavF), lavS);
   h += 6.5 * lava * (.8 + .4 * fbm(vec3f(x * .01, 6., z * .01), 2)) + 9. * max(lavF, lavS) * (fbm(vec3f(x * .007, 14., z * .007), 3) - .5);
@@ -365,7 +365,11 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     gra = mix(gra, vec3f(.16, .11, .09), ss(.5, .75, fract(i.wp.y * .11 + A.h * 1.5)) * select(.45, 0., far));
     gra = mix(gra, gra * vec3f(.55, .5, .5), ss(.55, .8, B.c) * f32(far) * .5);
     alb = mix(alb, gra, sat(gran * 1.4) * (1. - .1 * flt));
-    alb = mix(alb, mix(vec3f(.44, .40, .35) * (.92 + .12 * C.c), vec3f(.86, .84, .80), ss(.9, .97, city)), ss(.05, .2, city));
+    let tile = 1. - ss(.0, .05, min(abs(fract(i.wp.x / 6.) - .5), abs(fract(i.wp.z / 6.) - .5)) * 2. - .86);
+    let bandM = ss(.45, .5, abs(fract(i.wp.z / 30.) - .5));
+    let marble = vec3f(.86, .84, .80) * (1. - .16 * tile) * mix(1., .9, bandM) * (.96 + .06 * B.c);
+    let street = mix(vec3f(.36, .35, .35) * (.9 + .15 * C.c), vec3f(.64, .60, .54) * (.9 + .12 * B.c), ss(.4, .65, Lg.a));
+    alb = mix(alb, mix(street, marble, ss(.9, .97, city)), ss(.05, .2, city));
     alb = mix(alb, mix(mix(vec3f(.09, .075, .065), vec3f(.18, .135, .10), A.h) * (.7 + .6 * B.c), vec3f(.42, .30, .19), ss(.6, .8, B.c) * .4), lava * (1. - nk) * .8);
     alb *= mix(1., .6 + .8 * F.h, fk);
     bump = select(1.3, mix(.8, .2, ss(.05, .2, city)), far); gloss = mix(.03, .16, lava * (1. - flt)) * ss(120., 20., dist);
@@ -395,7 +399,17 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
       let wx = fract(fu / bw); let wy = fract(fv / 3.3); let flr = floor(fv / 3.3); let bay = floor(fu / bw);
       let win = step(.5 - ww, wx) * step(wx, .5 + ww) * step(.3, wy) * step(wy, .74) * step(1., flr) * wall * step(fv, i.m.w - 1.) * wfade * step(.15, hs(bay * 3.1 + flr * 5.7 + sd));
       let lit = step(.86, hs(flr * 13.1 + bay * 7.7 + sd * 31.));
-      alb = mix(alb, vec3f(.05, .055, .06), win * .9);
+      let frame = step(.5 - ww - .05, wx) * step(wx, .5 + ww + .05) * step(.25, wy) * step(wy, .79) * step(1., flr) * wall * step(fv, i.m.w - 1.) * wfade * (1. - win);
+      alb = mix(alb, alb * 1.12 + .03, frame);
+      let roshan = step(.8, hs(sd * 19.)) * step(.5, hs(bay * 7.3 + sd * 3.)) * step(1., flr) * wall * wfade * step(.12, wy) * step(wy, .9) * step(abs(wx - .5), ww + .12);
+      alb = mix(alb, vec3f(.30, .18, .10) * (.75 + .5 * step(.5, fract(fu * 3.))), roshan);
+      alb = mix(alb, vec3f(.05, .055, .06), win * .9 * (1. - roshan));
+      let shop = step(fv, 3.3) * wall * step(.3, hs(sd * 23.));
+      let awn = step(2.55, fv) * step(fv, 3.05) * shop;
+      alb = mix(alb, alb * vec3f(.42, .4, .38), shop * step(fv, 2.5) * step(.15, fract(fu / 4.)));
+      alb = mix(alb, mix(vec3f(.15, .32, .22), vec3f(.55, .16, .12), step(.5, hs(sd * 29.))), awn);
+      alb *= 1. - .1 * ss(.06, .0, abs(fract(fv / 3.3))) * wall * step(1., flr) * wfade;
+      alb *= mix(.82, 1., ss(0., 6., fv));
       alb = mix(alb, alb * vec3f(.82, .8, .78), (1. - wfade) * wall * .5);
       emi = vec3f(1., .62, .30) * .9 * win * lit;
       alb = mix(alb, alb * vec3f(.5, .47, .45), ss(.6, .9, on.y));

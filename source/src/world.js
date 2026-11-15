@@ -10,7 +10,8 @@ const MOSQ = [0, -1150], QUBA = [-95, -150], MS = 1.25;
 // city block sizes (w, h, d), shared by the placement and the meshes: footprints nearly fill 30 m cells
 // w, h, d, setback storey; indices 6-8 are the hotels near the Haram
 const CITY = [[27, 6.6, 28, 0], [28, 9.9, 26, 0], [24, 9.9, 27, 1], [28, 13.2, 28, 0], [26, 6.6, 27, 1], [20, 9.9, 28, 0], [28, 19.8, 28, 1], [29, 26.4, 29, 0], [26, 33, 26, 1], [22, 6.6, 24, 1]];
-const CITY_LOW = [0, 1, 2, 3, 4, 5, 9], NSOLID = 26 + CITY.length;
+// each type has two meshes with different rooftops (tanks, stair rooms), so neighbours rarely match
+const CITY_LOW = [0, 1, 2, 3, 4, 5, 9], NSOLID = 26 + CITY.length * 2;
 // viewpoints: x, eye height above the ground (absolute y when flying), z, look-at x, y, z, flying
 const POSES = [
   [-12.4, 1.7, 128, -14, 6, -400, 0],
@@ -171,6 +172,8 @@ function meshNabawi() {
   box(m, -75, 0, 110, 75, 13, 190);
   box(m, -32, 0, -237, 32, 24, -228); box(m, -153, 0, -60, -146, 22, -20); box(m, 146, 0, -60, 153, 22, -20);
   box(m, -150.5, 18, -230.5, 150.5, 19.2, 110.5);
+  for (const z of [-180, -110, -40, 30]) for (const s of [-1, 1]) box(m, s * 150 - (s > 0 ? 0 : 3.5), 0, z - 7, s * 150 + (s > 0 ? 3.5 : 0), 23, z + 7);
+  for (const x of [-110, -70, 70, 110]) box(m, x - 7, 0, -233.5, x + 7, 23, -230);
   return m;
 }
 function meshNabawiDomes() {
@@ -225,12 +228,13 @@ function meshRock(sd, sub, round_) {
     return [px, py, pz];
   });
 }
-function meshCityBox(w, h, d, step) {
-  const m = new Mesh();
+function meshCityBox(w, h, d, step, v) {
+  const m = new Mesh(), tank = (x, z, r, th) => lathe(m, [[r, 0], [r, th], [r * .8, th + .25], [0, th + .3]], 8, x, h + .9, z);
   box(m, -w / 2, 0, -d / 2, w / 2, h, d / 2);
   box(m, -w / 2 - .2, h, -d / 2 - .2, w / 2 + .2, h + .9, d / 2 + .2);
   if (step) { const s = h > 20 ? h * .25 : 3.3; box(m, -w * .3, h, -d * .3, w * .25, h + s, d * .3); box(m, -w * .3 - .15, h + s, -d * .3 - .15, w * .25 + .15, h + s + .7, d * .3 + .15); }
-  box(m, w * .15, h + .9, -d * .3, w * .15 + 2.4, h + 3.2, -d * .3 + 2.4); box(m, -w * .4, h + .9, d * .2, -w * .4 + 3, h + 2.2, d * .2 + 1.8);
+  if (v) { box(m, -w * .42, h + .9, -d * .42, -w * .42 + 3.2, h + 3.6, -d * .42 + 4); for (let k = 0; k < 4; k++) tank(w * (.05 + k * .1), d * .36, .7, 1.5); }
+  else { box(m, w * .15, h + .9, -d * .3, w * .15 + 2.4, h + 3.2, -d * .3 + 2.4); tank(-w * .3, d * .25, .9, 1.7); tank(-w * .3 + 2.2, d * .25, .9, 1.7); box(m, w * .3, h + .9, d * .3, w * .3 + 1.2, h + 1.6, d * .3 + .8); }
   return m;
 }
 function meshAcacia(sd) {
@@ -425,14 +429,15 @@ function makeWorld(D, T, NA, FAR, flyPts) {
     solid(13, MOSQ[0] + lx * MS, my, MOSQ[1] + lz * MS, MS * .82, Q0, 11, rnd(), 0, 0);
   }
 
-  // --- the city: low houses spreading out, hotels close to the Haram
+  // --- the city: low houses spreading out, hotels close to the Haram, palms along the streets
   rseed(5);
+  const streetPalms = [];
   for (let dz = -3240; dz < 900; dz += 360) for (let dx = -3240; dx < 3240; dx += 360) {
    const near = hypot(dx - MOSQ[0], dz - MOSQ[1]) < 700, ang = near ? rr(-.03, .03) : rr(-.55, .55), ca = cos(ang), sa = sin(ang);
    const sx = 5 + (rnd() * 3 | 0), sz = 5 + (rnd() * 3 | 0), lane = rnd() * 12 | 0;
    for (let j = 0; j < 12; j++) for (let i = 0; i < 12; i++) {
-    if (i % sx === 0 || j % sz === 0 || (i === lane && j > 6)) continue;
-    const lx = i * 30 - 165 + rr(-3, 3), lz = j * 30 - 165 + rr(-3, 3), x = dx + lx * ca - lz * sa, z = dz + lx * sa + lz * ca, c = farB(x, z, 0), gx = x, gz = z;
+    const lx = i * 30 - 165 + rr(-3, 3), lz = j * 30 - 165 + rr(-3, 3), x = dx + lx * ca - lz * sa, z = dz + lx * sa + lz * ca, c = farB(x, z, 0);
+    if (i % sx === 0 || j % sz === 0 || (i === lane && j > 6)) { if (j % 2 === 0 && rnd() < .4) streetPalms.push([x + rr(-4, 4), z + rr(-4, 4)]); continue; }
     if (c < .05 || c > .95 || rnd() > min(1, c * 3.2) || rnd() < .05) continue;
     const dm = hypot(x - MOSQ[0], (z - MOSQ[1]) * 1.15);
     let t = CITY_LOW[(rnd() * CITY_LOW.length) | 0];
@@ -440,7 +445,7 @@ function makeWorld(D, T, NA, FAR, flyPts) {
     else if (dm < 1050 && rnd() < .08) t = 6;
     if (z > MOSQ[1] + 300 && abs(x - MOSQ[0]) < 700 && t >= 6 && t <= 8) t = CITY_LOW[(rnd() * 4) | 0];
     const sc = rr(.82, 1.04), yaw = -ang + (rnd() < .5 ? 0 : PI / 2) + rr(-.025, .025);
-    solid(26 + t, x, fh(x, z) - .5, z, sc, yawQ(yaw), 17, rnd(), 0, CITY[t][1] * sc);
+    solid(26 + t * 2 + (rnd() < .5 ? 1 : 0), x, fh(x, z) - .5, z, sc, yawQ(yaw), 17, rnd(), 0, CITY[t][1] * sc);
    }
   }
   // far palm groves and gardens
@@ -451,6 +456,7 @@ function makeWorld(D, T, NA, FAR, flyPts) {
     const off = rnd() * TAU, n = LV > 1 ? 6 : 9;
     for (let f = 0; f < n; f++) farL.push(x + top[0], y + top[1] + .2, z + top[2], rr(3.2, 4.2), off + f * 2.39996, mix(.4, 1.9, f / n), .6, H, 5, rnd(), rnd(), .55);
   };
+  for (const [x, z] of streetPalms) { const c = farB(x, z, 0); if (c > .05 && c < .95) farTrunk(x, z, rr(7, 12)); }
   let nFar = 0;
   for (let gz = -3000; gz < 2600 && nFar < 9000; gz += 13) for (let gx = -3000; gx < 2600 && nFar < 9000; gx += 13) {
     const x = gx + rr(-4, 4), z = gz + rr(-4, 4);

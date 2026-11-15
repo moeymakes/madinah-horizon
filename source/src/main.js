@@ -237,7 +237,7 @@ const W = Wd.worldMeshes;
 const meshes = [...Wd.trunks, meshDates(), meshRock(1, 2, 0), meshRock(7, 3, 0), meshRock(13, 2, 0), meshRock(22, 1, 1),
   meshFarTrunk(), meshNabawi(), meshNabawiDomes(), meshGreenDome(), meshMinaret(MINARET_N, 9, 20, 1.3), meshUmbrella(), meshQubaBody(), meshQubaDomes(),
   meshMinaret(MINARET_Q, 4.4, 12), meshFinial(1), W.walls, W.chan, W.water, W.well, W.wood, ...Wd.acacias,
-  ...CITY.map((d) => meshCityBox(...d)), meshBird()].map((m) => m.build());
+  ...CITY.flatMap((d) => [meshCityBox(...d, 0), meshCityBox(...d, 1)]), meshBird()].map((m) => m.build());
 let nV = 0, nI = 0;
 for (const m of meshes) { m.v0 = nV; m.i0 = nI; nV += m.nv; nI += m.ib.length; }
 const allV = new Uint8Array(nV * 16), allI = new Uint32Array(nI);
@@ -292,7 +292,8 @@ const NB = 6;
 function resize() {
   DW = max(2, round(canvas.clientWidth * devicePixelRatio)); DH = max(2, round(canvas.clientHeight * devicePixelRatio));
   const s = min(1, sqrt(pix / (DW * DH)));
-  const w = max(2, round(DW * s) & ~1), h = max(2, round(DH * s) & ~1);
+  // sizes snap to 32-pixel steps so near-identical budgets do not rebuild the targets
+  const w = s >= 1 ? DW & ~1 : max(32, round(DW * s / 32) * 32), h = s >= 1 ? DH & ~1 : max(32, round(DH * s / 32) * 32);
   if (w === Wpx && h === Hpx) return;
   dynN = dynG = dynGN = 0; dynT = dynT === -Infinity ? dynT : -300;
   Wpx = w; Hpx = h; canvas.width = Wpx; canvas.height = Hpx;
@@ -466,12 +467,14 @@ function frame(now) {
   requestAnimationFrame(frame);
   const dtr = now - F[LAST]; F[LAST] = now;
   let dt = dtr / 1000; if (dt > 0.1) dt = 0.1;
-  // dynamic resolution for 60 fps: every second (0.4 s behind the menu) scale the load by k
-  if (dtr < 1e3 && (dynT += dtr) > 0 && (dynN++, dynT > (menu ? 400 : 1000))) {
+  // dynamic resolution for 60 fps: every 2 s (0.4 s behind the menu) scale the load by k. Every resize rebuilds all
+  // render targets (a visible hitch), so small corrections are ignored and upward probes are rare.
+  if (dtr < 1e3 && (dynT += dtr) > 0 && (dynN++, dynT > (menu ? 400 : 2000))) {
     const a = dynT / dynN, g = dynGN ? dynG / dynGN : 0; let k = 1;
     if (g) { if (g > 13.6 || g < 9.8) k = 11.7 / g; }
     else if (a > 17.6) { dynOk = 0; if (++dynBad > 1) { k = 15 / a; dynBad = 0; dynWait = min(dynWait * 2, 60); } }
-    else { dynBad = 0; if (a < 12.5) k = 15 / a; else if (++dynOk > dynWait) { k = 1.17; dynOk = 0; } }
+    else { dynBad = 0; if (a < 12.5) k = 15 / a; else if (++dynOk > dynWait * 2) { k = 1.17; dynOk = 0; } }
+    if (abs(k - 1) < .12 && !menu) k = 1;
     k = k < 0.5 ? 0.5 : k > 1.7 ? 1.7 : k; const top = min(PIXMAX, DW * DH), mid = max(top / 2, PIXMIN), was = pix + det;
     if (k < 1 ? pix > mid || det <= DETMIN : pix < mid || det >= 1) {
       const end = k < 1 ? (det > DETMIN ? mid : PIXMIN) : det < 1 ? mid : top;

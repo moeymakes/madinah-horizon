@@ -4,12 +4,11 @@ Built with the `worldsmith` skill (`~/.shared/skills/worldsmith`). Brief: `promp
 
 ## State (update after every phase)
 
-- Phase: 5 (critic loop), iteration 12 captured at 2560x1440. Moey chose "keep iterating" (2026-11-15) after the iter-11 plateau.
-- Iter-12 approach changes: date-palm crowns rebuilt (36-48 long arching fronds), grove sun shafts visible, city as rotated districts with lanes, stone-coloured near granite, haze gold-near/blue-far
-- Last good capture: verify/iter-13; minified index.html: 0 errors
-- Perf (iter-13, RTX 3070, 2560x1440, 60 s flight): GPU avg 5.63 ms, p99 6.78, max 7.55 -> gate passes
-- Critic: iter-04 blocker; iter-06..13 major. Critic is now inconsistent run to run on unchanged elements (palms minor at 12, major at 13; water 4 different verdicts).
-- Next step: WAITING FOR MOEY (second plateau): ship as is, or change the gate (e.g. majority of 3 critics) before iterating. Watchdog deleted while waiting.
+- Phase: SHIPPED to GitHub Pages (https://moeymakes.github.io/madinah-horizon/) at Moey's request; iteration 14 adds city/facade/Masjid detail, smoother dynamic resolution, lava pulled out of the city
+- Last good capture: verify/iter-14 (local only, verify/ is gitignored); minified index.html: 0 errors at High and Low
+- Perf (iter-14, RTX 3070 shared with two other builds at ~29%, 2560x1440, 60 s flight): GPU avg 4.93 ms, p99 6.51, max 9.42
+- Critic: iter-04 blocker; iter-06..13 major with run-to-run noise; Moey judged it ready to share
+- Next step: none required. Optional: majority-of-3 critic gate before further polish.
 - Smoke test passed: walking, F flight up, F back to walking lands under gravity (index.html, 0 errors)
 - Not done yet: phase 6 polish checks (touch, quality levels on Low), README + screenshots, final critic pass
 - Decisions locked with Moey (2026-11-15): land around the Masjid (not the courtyard close-up, not the

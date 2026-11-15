@@ -5,7 +5,7 @@
 Palm groves with mud-brick walls and still irrigation channels, the black lava of the harrat, a sandy wadi,
 a white domed mosque in the style of Masjid Quba, and on the horizon the minarets of the Prophet's Mosque in
 front of Mount Uhud. Everything is made by code: no images, no 3D models, no sound files. The whole world is
-**one HTML file** of about 90 KB.
+**one HTML file** of about 93 KB.
 
 The geography is composed and compressed so it fits in one view, and the buildings are respectful
 approximations, not replicas. There are no people in the scene, and nothing is recited.
