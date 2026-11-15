@@ -10,6 +10,15 @@ front of Mount Uhud. Everything is made by code: no images, no 3D models, no sou
 The geography is composed and compressed so it fits in one view, and the buildings are respectful
 approximations, not replicas. There are no people in the scene, and nothing is recited.
 
+![A lane between walled date gardens, an irrigation channel leading north toward the Prophet's Mosque](.github/screenshots/lane-to-the-masjid.jpg)
+
+| | |
+|---|---|
+| ![From the granite hill: the grove, the lava edge, the city, the Green Dome and Uhud](.github/screenshots/hilltop-view.jpg) | ![A white mosque with arcades and four minarets among palms](.github/screenshots/white-mosque.jpg) |
+| ![A sandy wadi with acacias and palms](.github/screenshots/wadi.jpg) | ![The black basalt of the harrat](.github/screenshots/lava-field.jpg) |
+
+![Over the city toward the Prophet's Mosque and Mount Uhud](.github/screenshots/over-the-city.jpg)
+
 ## Try it
 
 1. Download [`index.html`](index.html).

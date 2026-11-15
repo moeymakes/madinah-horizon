@@ -15,9 +15,9 @@ const CITY_LOW = [0, 1, 2, 3, 4, 5, 9], NSOLID = 26 + CITY.length;
 const POSES = [
   [-12.4, 1.7, 128, -14, 6, -400, 0],
   [150, 1.7, -30, -60, 40, -700, 0],
-  [-160, 1.7, 130, -110, 42, -400, 0],
+  [-160, 1.7, 130, -110, 70, -400, 0],
   [95, 1.7, 165, 0, 40, -1150, 0],
-  [-50, 1.7, -108, -98, 16, -152, 0],
+  [-36, 1.7, -92, -98, 27, -152, 0],
   [230, 210, -400, 0, 25, -1190, 1],
 ];
 // 60 s scripted camera path (position + look-at, absolute heights): the generator keeps it clear of palms
@@ -422,7 +422,7 @@ function makeWorld(D, T, NA, FAR, flyPts) {
   for (let x = -238; x <= 238; x += 34) for (let z = -320; z <= 320; z += 34) {
     const lx = x, lz = z - 20;
     if (lx > -175 && lx < 175 && lz > -255 && lz < 222) continue;
-    solid(13, MOSQ[0] + lx * MS, my, MOSQ[1] + lz * MS, MS * 1.3, Q0, 11, rnd(), 0, 0);
+    solid(13, MOSQ[0] + lx * MS, my, MOSQ[1] + lz * MS, MS * 1.05, Q0, 11, rnd(), 0, 0);
   }
 
   // --- the city: low houses spreading out, hotels close to the Haram
@@ -430,13 +430,13 @@ function makeWorld(D, T, NA, FAR, flyPts) {
   for (let gz = -3300; gz < 900; gz += 30) for (let gx = -3200; gx < 3200; gx += 30) {
     const x = gx + rr(-5, 5), z = gz + rr(-5, 5), c = farB(x, z, 0);
     if (((gx + 3200) / 30) % 5 === 0 || ((gz + 3300) / 30) % 6 === 0) continue;
-    if (c < .05 || c > .95 || rnd() > min(1, c * 2.4)) continue;
+    if (c < .05 || c > .95 || rnd() > min(1, c * 2.4) || rnd() < .08) continue;
     const dm = hypot(x - MOSQ[0], (z - MOSQ[1]) * 1.15);
     let t = CITY_LOW[(rnd() * CITY_LOW.length) | 0];
     if (dm < 650 && rnd() < .45) t = rnd() < .55 ? 6 : rnd() < .88 ? 7 : 8;
     else if (dm < 1050 && rnd() < .08) t = 6;
     if (z > MOSQ[1] + 300 && abs(x - MOSQ[0]) < 700 && t >= 6 && t <= 8) t = CITY_LOW[(rnd() * 4) | 0];
-    const sc = rr(.94, 1.04), yaw = (rnd() < .5 ? 0 : PI / 2) + rr(-.02, .02);
+    const sc = rr(.9, 1.04), yaw = (rnd() < .5 ? 0 : PI / 2) + .06 * sin(gx * .0013 + gz * .0009) + rr(-.03, .03);
     solid(26 + t, x, fh(x, z) - .5, z, sc, yawQ(yaw), 17, rnd(), 0, CITY[t][1] * sc);
   }
   // far palm groves and gardens
@@ -530,7 +530,7 @@ function makeWorld(D, T, NA, FAR, flyPts) {
     const lava = nearA(x, z, 1), gr = nearA(x, z, 2);
     const q = qRand();
     if (lava > .3 && rnd() < sstep(.5, .95, lava) * .9) {
-      const sc = (.25 + 1.6 * pow(rnd(), 2.5)) * (ny > .8 ? .7 : 1), bigR = sc > 1;
+      const sc = (.2 + 1.4 * pow(rnd(), 3) + (rnd() < .04 ? rr(1.2, 2.6) : 0)) * (ny > .8 ? .75 : 1), bigR = sc > 1;
       solid(bigR ? 5 : 4, x - T.wn[k] * sc * .3, y - ny * sc * .3, z - T.wn[k + 2] * sc * .3, sc, q, 2, rnd(), bigR ? 0 : 110, 0);
     } else if (gr > .3 && rnd() < gr * .25) {
       const sc = .3 + 1.3 * pow(rnd(), 2);
