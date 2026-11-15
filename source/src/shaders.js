@@ -216,7 +216,7 @@ struct G { vp: mat4x4f, sm: mat4x4f, cam: vec4f, right: vec4f, up: vec4f, fwd: v
 const SUNC = vec3f(2.9, 2.1, 1.35);
 const ZEN = vec3f(.10, .24, .58);
 const HOR = vec3f(.98, .66, .42);
-const BETA = vec3f(.85e-4, 1.1e-4, 1.5e-4);
+const BETA = vec3f(.75e-4, .9e-4, 1.15e-4);
 const HSCALE = 300.;
 const TAU = 6.2831853;
 const NEARH = 256.;
@@ -232,7 +232,7 @@ fn skyCol(rd: vec3f, sun: vec3f) -> vec3f {
   let h = vec2f(rd.x, rd.z); let hl = max(length(h), 1e-4);
   let tw = .5 + .5 * dot(h / hl, normalize(sun.xz));
   let mu = dot(rd, sun);
-  let hor = mix(vec3f(.66, .67, .74), vec3f(1.35, .84, .44), tw * tw);
+  let hor = mix(vec3f(.74, .68, .66), vec3f(1.35, .84, .44), tw * tw);
   var c = mix(hor, ZEN, pow(y, .5));
   c += vec3f(1., .5, .2) * .35 * pow(sat(1. - y * 4.), 3.) * tw * tw * tw;
   c += SUNC * (.04 * pow(max(mu, 0.), 5.) + .16 * pow(max(mu, 0.), 40.) + .45 * pow(max(mu, 0.), 500.));
@@ -286,7 +286,7 @@ fn vol(p: vec3f) -> vec2f {
 }
 fn amb(n: vec3f, sky: f32) -> vec3f {
   let up = n.y * .5 + .5;
-  return (ZEN * 1.15 * up * up + vec3f(.62, .44, .30) * .32 * (1. - up) + vec3f(.08, .07, .065)) * (.3 + .7 * sky);
+  return (mix(ZEN, vec3f(.36, .32, .34), .35) * 1.1 * up * up + vec3f(.66, .46, .30) * .36 * (1. - up) + vec3f(.10, .08, .065)) * (.3 + .7 * sky);
 }
 fn aerial(c: vec3f, wp: vec3f) -> vec3f { return aerialAt(c, g.cam.xyz, wp, g.sun.xyz); }
 `;
@@ -346,19 +346,22 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
   let nk = nearK(i.wp);
   // facade coordinates for building materials: along the wall and up it
   let fu = select(i.op.z, i.op.x, abs(on.z) > abs(on.x)); let fv = i.op.y; let wall = 1. - ss(.45, .7, abs(on.y));
+  // window grid fades before it can sparkle (derivatives must be taken outside the material branches)
+  let wfade = 1. - ss(.25, .6, fwidth(fu / 3.4) + fwidth(fv / 3.3));
   if (mat <= 1) {
     let lava = mix(fm.r, nm.g, nk); let gran = mix(fm.g, nm.b, nk); let wadi = nm.r * nk; let irr = nm.a * nk; let city = fm.b * (1. - nk);
     alb = mix(vec3f(.52, .34, .19), vec3f(.68, .49, .30), sat(A.c * 1.4 - .2)) * (.72 + .5 * B.h) * (.82 + .36 * C.c);
     alb = mix(alb, vec3f(.36, .26, .18) * (.8 + .4 * C.h), ss(.55, .75, B.c) * .35);
     alb = mix(alb, vec3f(.76, .62, .45) * (.86 + .25 * B.h), wadi);
     alb = mix(alb, mix(vec3f(.21, .14, .085), vec3f(.12, .15, .055), ss(.35, .65, B.c)), irr * .85);
-    let bas = mix(vec3f(.032, .031, .03), vec3f(.065, .052, .045), ss(.5, .78, A.c)) * (.65 + .7 * C.h);
-    alb = mix(alb, mix(bas, vec3f(.40, .28, .17) * (.8 + .3 * B.h), flt * ss(.6, .9, B.c + .2 * A.h) * .45), lava);
+    let bas = mix(vec3f(.05, .048, .046), vec3f(.10, .085, .072), ss(.5, .78, A.c)) * (.65 + .7 * C.h);
+    let lv = max(lava, ss(.04, .3, lava) * (1. - flt));
+    alb = mix(alb, mix(bas, vec3f(.44, .32, .20) * (.8 + .3 * B.h), flt * ss(.5, .85, B.c + .2 * A.h) * .6), lv);
     var gra = mix(vec3f(.40, .18, .11), vec3f(.56, .30, .19), A.c) * (.68 + .55 * B.h);
     gra = mix(gra, vec3f(.16, .11, .09), ss(.5, .75, fract(i.wp.y * .11 + A.h * 1.5)) * select(.45, 0., far));
     gra = mix(gra, gra * vec3f(.55, .5, .5), ss(.55, .8, B.c) * f32(far) * .5);
-    alb = mix(alb, gra, gran * (1. - .55 * flt));
-    alb = mix(alb, mix(vec3f(.52, .45, .37) * (.8 + .3 * B.h), vec3f(.84, .82, .77), ss(.9, .97, city)), ss(.05, .2, city));
+    alb = mix(alb, gra, gran * (1. - .25 * flt));
+    alb = mix(alb, mix(vec3f(.44, .40, .35) * (.92 + .12 * C.c), vec3f(.86, .84, .80), ss(.9, .97, city)), ss(.05, .2, city));
     alb = mix(alb, mix(mix(vec3f(.09, .075, .065), vec3f(.18, .135, .10), A.h) * (.7 + .6 * B.c), vec3f(.42, .30, .19), ss(.6, .8, B.c) * .4), lava * (1. - nk) * .8);
     alb *= mix(1., .6 + .8 * F.h, fk);
     bump = select(1.3, 1., far); gloss = mix(.06, .22, lava * (1. - flt));
@@ -385,9 +388,10 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     alb = tone * (.86 + .2 * B.h) * (.94 + .1 * C.c);
     if (mat == 17) {
       let wx = fract(fu / 3.4); let wy = fract(fv / 3.3); let flr = floor(fv / 3.3); let bay = floor(fu / 3.4);
-      let win = step(.28, wx) * step(wx, .72) * step(.3, wy) * step(wy, .78) * step(1., flr) * wall * step(fv, i.m.w - 1.);
+      let win = step(.28, wx) * step(wx, .72) * step(.3, wy) * step(wy, .78) * step(1., flr) * wall * step(fv, i.m.w - 1.) * wfade;
       let lit = step(.86, hs(flr * 13.1 + bay * 7.7 + sd * 31.));
       alb = mix(alb, vec3f(.05, .055, .06), win * .9);
+      alb = mix(alb, alb * vec3f(.82, .8, .78), (1. - wfade) * wall * .5);
       emi = vec3f(1., .62, .30) * .9 * win * lit;
       alb = mix(alb, alb * vec3f(.5, .47, .45), ss(.6, .9, on.y));
       gloss = mix(.08, .55, win);
@@ -403,7 +407,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
       alb = mix(alb, vec3f(.05, .05, .06), a2 * .9 * step(.5, i.m.w));
       emi = vec3f(1., .7, .4) * (.04 * a1i + .07 * a2) * step(.5, i.m.w);
       gloss = mix(.08, .5, a2);
-      alb = mix(alb, alb * vec3f(.78, .72, .66), ss(.6, .9, on.y));
+      alb = mix(alb, vec3f(.86, .84, .80), ss(.6, .9, on.y) * f32(mat == 7));
       let band = ss(.92, .97, fract(fv / select(7.9, 16.6, mat == 7))) * wall;
       alb = mix(alb, alb * vec3f(.92, .84, .7), band * .6);
     }
@@ -437,7 +441,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     let N = normalize(vec3f(rpW.x * .06, 1., rpW.y * .06));
     let fr = .02 + .98 * pow(1. - sat(dot(N, V)), 5.);
     let R = reflect(-V, N);
-    var c = mix(vec3f(.012, .02, .012), skyCol(R, g.sun.xyz) * .55, fr * .85) + SUNC * shadow1(i.wp) * pow(sat(dot(R, g.sun.xyz)), 600.) * 4.;
+    var c = mix(vec3f(.008, .014, .01), skyCol(R, g.sun.xyz) * .75, pow(fr, 1.5)) + SUNC * shadow1(i.wp) * pow(sat(dot(R, g.sun.xyz)), 800.) * 5.;
     return fin(aerial(c, i.wp));
   }
   let N = normalize(qrot(i.q, normalize(on + (A.n * .8 + B.n * .6 + C.n * .4 * ss(70., 10., dist) + F.n * .5 * fk) * bump)));
@@ -485,7 +489,7 @@ fn grassSway(p: vec2f, h: f32, t: f32) -> vec2f {
   switch ty {
     case 0 { col = mix(vec3f(.09, .14, .035), vec3f(.18, .20, .055), s1); pr = vec4f(1., .55, 0., 0.); fold = .5; }
     case 1 { col = mix(vec3f(.20, .14, .075), vec3f(.28, .20, .10), s1); pr = vec4f(1., .3, 0., 0.); fold = .3; }
-    case 2 { col = mix(vec3f(.16, .19, .05), vec3f(.30, .28, .10), s1); pr = vec4f(0., .7, 0., 0.); }
+    case 2 { col = mix(vec3f(.24, .27, .08), vec3f(.42, .38, .14), s1); pr = vec4f(0., .8, 0., 0.); }
     case 3 { col = mix(vec3f(.20, .21, .14), vec3f(.28, .23, .13), s1); pr = vec4f(0., .4, 0., 0.); }
     case 4 { col = mix(vec3f(.12, .16, .06), vec3f(.18, .20, .08), s1); pr = vec4f(0., .6, 0., 0.); }
     default { col = mix(vec3f(.09, .12, .04), vec3f(.15, .16, .05), s1); pr = vec4f(0., .6, 0., 0.); }
@@ -510,14 +514,14 @@ fn grassSway(p: vec2f, h: f32, t: f32) -> vec2f {
   return o;
 }
 fn leafCov(i: LO) -> f32 {
-  let s = i.uv.y * 34. + abs(i.uv.x) * 2.4 + i.sd.x * 7.;
+  let s = i.uv.y * 30. + abs(i.uv.x) * 2.6 + i.sd.x * 7.;
   let fw = fwidth(s);
   let f = abs(fract(s) - .5) * 2.;
-  let lw = .7 * (1. - .4 * abs(i.uv.x));
+  let lw = .56 * (1. - .45 * abs(i.uv.x));
   var cov = 1. - ss(lw - fw, lw + fw, f);
   cov = max(cov, 1. - ss(.04, .07, abs(i.uv.x)));
   cov *= 1. - ss(.82, 1., abs(i.uv.x) + .1 * f);
-  cov = mix(cov, 1., ss(.16, .45, fw));
+  cov = mix(cov, .8, ss(.22, .5, fw));
   let sharp = sat((cov - .5) / max(fwidth(cov), 1e-4) + .5);
   return select(1., sharp, i.pr.x > .5);
 }
@@ -534,7 +538,7 @@ fn leafCov(i: LO) -> f32 {
   let E = SUNC * shadow1(i.wp + L * .4);
   let ndl = dot(n, L);
   var alb = i.col * (.7 + .3 * ss(0., .3, abs(i.uv.x))) * mix(.75, 1.1, i.uv.y) * (.6 + .8 * lt.b) * (.75 + .5 * lt.a);
-  let tr = (max(-ndl, 0.) * .9 + .1) * i.pr.y;
+  let tr = (max(-ndl, 0.) * .9 + .25) * i.pr.y;
   let trc = alb * vec3f(1.2, 1.25, .55);
   let aov = sat((vv.x - .5) * 5.);
   let am = (amb(n, vv.y) + amb(-n, vv.y) * i.pr.y * .45) * (.35 + .65 * aov);
@@ -704,7 +708,7 @@ fn tmap(x: vec3f) -> vec3f { return clamp((x * (2.51 * x + .03)) / (x * (2.43 * 
   }
   var c = textureLoad(tS, px, 0).rgb + acc / ws;
   let bl = textureSampleLevel(tB, sC, uv, 0.).rgb;
-  c = mix(c, bl, .05) + bl * .03;
+  c = mix(c, bl, .035) + bl * .02;
   c *= g.mis.x;
   let q = uv - .5;
   c *= 1. - dot(q, q) * .45;
