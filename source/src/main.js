@@ -13,11 +13,11 @@ const say = (m, to, ms) => {
   return new Promise((r) => { a.ready.then(() => setTimeout(r)); setTimeout(r, document.hidden ? 0 : 1e3); });
 };
 const fail = (m) => { throw new Error(m, { cause: 1 }); };
-if (!navigator.gpu) fail('This scene needs WebGPU. Try a current Chrome or Edge.');
+if (!navigator.gpu) fail('This scene needs WebGPU. Open it in a current Chrome or Edge on a desktop or laptop.');
 // some drivers (headless Linux Chrome among them) answer null to a high-performance request but give the GPU
 // to a plain one
 const adapter = (await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' })) || (await navigator.gpu.requestAdapter());
-if (!adapter) fail('No WebGPU adapter found.');
+if (!adapter) fail('WebGPU is switched off or unavailable here. Open it in Chrome or Edge on a desktop or laptop with graphics acceleration turned on.');
 $('w').hidden = !!navigator.userAgentData;
 const hasTS = adapter.features.has('timestamp-query');
 const device = await adapter.requestDevice({ requiredFeatures: hasTS ? ['timestamp-query'] : [], requiredLimits: { maxStorageBufferBindingSize: min(adapter.limits.maxStorageBufferBindingSize, 1 << 28), maxBufferSize: min(adapter.limits.maxBufferSize, 1 << 28) } });
