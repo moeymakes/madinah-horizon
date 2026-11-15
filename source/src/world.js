@@ -7,14 +7,16 @@
 // sun 9 degrees up in the west-south-west: facing north it lights things from the left
 const SUN = (() => { const v = [-.93, .158, .37]; const l = hypot(...v); return v.map((c) => c / l); })();
 const MOSQ = [0, -1500], QUBA = [-95, -150];
+// city block sizes (w, h, d), shared by the placement and the meshes: footprints nearly fill 30 m cells
+const CITY = [[27, 7, 28], [28, 10, 26], [24, 13, 27], [28, 16, 28], [28, 34, 28], [29, 52, 29], [26, 70, 26]];
 // viewpoints: x, eye height above the ground (absolute y when flying), z, look-at x, y, z, flying
 const POSES = [
   [-12.4, 1.7, 128, -14, 6, -400, 0],
-  [150, 1.7, -30, -60, 12, -700, 0],
-  [-160, 1.7, 130, -120, 6, -400, 0],
-  [95, 1.7, 165, 10, 15, -900, 0],
+  [150, 1.7, -30, -60, 40, -700, 0],
+  [-160, 1.7, 130, -110, 24, -400, 0],
+  [95, 1.7, 165, 0, 40, -1500, 0],
   [-50, 1.7, -108, -98, 16, -152, 0],
-  [60, 250, 230, 0, 0, -1450, 1],
+  [40, 240, -560, 0, 20, -1500, 1],
 ];
 // 60 s scripted camera path (position + look-at, absolute heights): the generator keeps it clear of palms
 const FLY = new Float32Array([
@@ -33,9 +35,9 @@ const FLY = new Float32Array([
   150, 20, 60, 140, 8, -100,
   160, 18, -40, -60, 12, -700,
   130, 40, -120, -40, 20, -900,
-  95, 90, -40, 0, 30, -1300,
-  70, 190, 140, 0, 0, -1450,
-  60, 250, 230, 0, 0, -1450,
+  95, 90, -160, 0, 30, -1450,
+  60, 170, -380, 0, 20, -1500,
+  40, 240, -560, 0, 20, -1500,
 ]);
 
 // walled date gardens: grid lines of the plots east of the wadi, and a strip west of it
@@ -91,7 +93,7 @@ function farSampler(FA) {
   };
 }
 function buildFar(fh) {
-  const NR = 210, NS = 512, R0 = 190, R1 = 12000, nv = NR * NS;
+  const NR = 260, NS = 768, R0 = 190, R1 = 12000, nv = NR * NS;
   const vb = new ArrayBuffer(nv * 16), vf = new Float32Array(vb), v8 = new Int8Array(vb);
   const sx = SUN[0], sy = SUN[1], sz = SUN[2], sl = hypot(sx, sz), tn = sy / sl;
   for (let r = 0; r < NR; r++) {
@@ -134,7 +136,6 @@ const domeProf = (r, drum, point = 1.12) => {
   for (let i = 1; i <= 12; i++) { const a = i / 12 * PI / 2; p.push([r * cos(a), drum + .35 + r * point * pow(sin(a), .92)]); }
   return p;
 };
-const finialProf = (s) => [[.16 * s, 0], [.16 * s, 1.1 * s], [.38 * s, 1.3 * s], [.4 * s, 1.55 * s], [.14 * s, 1.75 * s], [.09 * s, 2.7 * s], [.26 * s, 2.9 * s], [.05 * s, 3.4 * s], [0, 3.6 * s]];
 function meshDome(r, drum) { const m = new Mesh(); lathe(m, domeProf(r, drum), 24); return m; }
 // Masjid an-Nabawi minaret: square base, three octagonal stages with balconies, a lantern and a cap
 const MINARET_N = [[3.3, 20], [3.3, 50], [4.4, 50.4], [4.4, 52], [3, 52.4], [3, 68], [4, 68.4], [4, 70], [2.5, 70.4], [2.5, 80], [3.4, 80.4], [3.4, 81.8], [2.1, 82.2], [2.1, 86], [2.35, 86.2], [2.2, 87.8], [1.3, 89.8], [.3, 91.3], [0, 91.5]];
@@ -146,7 +147,17 @@ function meshMinaret(prof, base, baseH) {
   lathe(m, prof, 8);
   return m;
 }
-function meshFinial(s) { const m = new Mesh(); lathe(m, finialProf(s), 10); return m; }
+// alem: a short pole with stacked spheres and an upturned crescent on top
+function meshFinial(s) {
+  const m = new Mesh(), ball = (y, r) => { const p = []; for (let i = 0; i <= 8; i++) { const a = -PI / 2 + i / 8 * PI; p.push([cos(a) * r, y + r + sin(a) * r]); } return p; };
+  lathe(m, [[.15 * s, 0], [.15 * s, .9 * s], [.1 * s, .9 * s]], 10);
+  lathe(m, ball(.9 * s, .34 * s), 12); lathe(m, ball(1.55 * s, .24 * s), 12);
+  lathe(m, [[.07 * s, 2 * s], [.07 * s, 2.35 * s], [0, 2.36 * s]], 8);
+  const R = .55 * s, cy = 2.3 * s + R * .95, pts = [];
+  for (let k = 0; k <= 16; k++) { const a = (200 + k / 16 * 140) * PI / 180; pts.push([cos(a) * R, cy + sin(a) * R, 0]); }
+  m.tube(pts, (k) => .015 * s + .1 * s * sin(PI * k / 16), 6, false, () => 1);
+  return m;
+}
 // the Prophet's Mosque (local coordinates, centre of the plaza): Saudi-era hall, the lower Ottoman part to
 // the south with the Green Dome in its south-east, gate blocks on the north front
 function meshNabawi() {
@@ -318,11 +329,12 @@ function makeWorld(D, T, NA, FAR, flyPts) {
   for (const p of PLOTS) {
     const sp = rr(7, 8.2), jx = rr(0, sp), jz = rr(0, sp), old = rr(.6, 1);
     for (let z = p[1] + 3 + jz % 3; z < p[3] - 2; z += sp) for (let x = p[0] + 3 + jx % 3; x < p[2] - 2; x += sp) {
-      if (rnd() < .1) continue;
+      if (rnd() < .17) continue;
       const px = x + rr(-.9, .9), pz = z + rr(-.9, .9);
       if (nearFly(px, pz, 4.5) || nearPose(px, pz, 3.5) || hypot(px - WELL[0], pz - WELL[1]) < 4) continue;
-      const young = rnd() < .14;
-      palm(px, pz, young ? rr(2.5, 4) : rr(6, 15) * old, young);
+      const young = rnd() < .18;
+      palm(px, pz, young ? rr(2.2, 4.2) : rr(5, 17) * old * rr(.85, 1.1), young);
+      if (!young && rnd() < .2) { const a = rnd() * TAU; palm(px + cos(a) * 1.3, pz + sin(a) * 1.3, rr(1.6, 2.6), 1); }
     }
   }
   // the garden around the white mosque
@@ -351,8 +363,8 @@ function makeWorld(D, T, NA, FAR, flyPts) {
       for (let t = 0; t <= L; t += 3) {
         const u = t / L, x = mix(a[0], b[0], u), z = mix(a[1], b[1], u);
         if (abs(u - gate) * L < 2.2 || (rnd() < .03 && pts.length)) { if (pts.length > 1) walls.sweep(pts, .55, h0, () => [0, 1, 0]); pts = []; continue; }
-        const h = h0 * (1 - .25 * fbm(x * .2, 2, z * .2, 2));
-        pts.push([x, gy(x, z) + h / 2 - .3, z]);
+        const h = h0 * (1 - .3 * fbm(x * .35, 2, z * .35, 2));
+        pts.push([x, gy(x, z) + h - h0 / 2 - .3, z]);
       }
       if (pts.length > 1) walls.sweep(pts, .55, h0, () => [0, 1, 0]);
     }
@@ -391,14 +403,14 @@ function makeWorld(D, T, NA, FAR, flyPts) {
   solid(14, QUBA[0], qy - .3, QUBA[1], 1, Q0, 6, .2, 0, 1);
   solid(15, QUBA[0], qy - .3, QUBA[1], 1, Q0, 6, .3, 0, 0);
   for (const [x, z] of [[-28, -28], [28, -28], [-28, 28], [28, 28]]) { solid(16, QUBA[0] + x, qy - .3, QUBA[1] + z, 1, yawQ(PI / 8), 6, .4, 0, 0); solid(17, QUBA[0] + x, qy + 44.4, QUBA[1] + z, 1, Q0, 10, 0, 0, 0); }
-  solid(17, QUBA[0], qy + 11.9 + 3.5 + .35 + 8.5 * 1.12 - .3, QUBA[1] + 10, 1.3, Q0, 10, 0, 0, 0);
+  solid(17, QUBA[0], qy + 11.9 + 3.5 + .35 + 8.5 * 1.12 - .4, QUBA[1] + 10, 1.3, Q0, 10, 0, 0, 0);
 
   // --- the Prophet's Mosque on the horizon
   const my = fh(MOSQ[0], MOSQ[1]);
   solid(9, MOSQ[0], my, MOSQ[1], 1, Q0, 7, .1, 0, 1);
   solid(10, MOSQ[0], my, MOSQ[1], 1, Q0, 9, .2, 0, 0);
-  solid(11, MOSQ[0] + 42, my + 13, MOSQ[1] + 158, 1, Q0, 8, .3, 0, 0);
-  solid(17, MOSQ[0] + 42, my + 13 + 3.4 + 5 + .35 + 7.6 * 1.18 - .3, MOSQ[1] + 158, 1.6, Q0, 10, 0, 0, 0);
+  solid(11, MOSQ[0] + 42, my + 13, MOSQ[1] + 158, 1.5, Q0, 8, .3, 0, 0);
+  solid(17, MOSQ[0] + 42, my + 13 + (3.4 + 5 + .35 + 7.6 * 1.18) * 1.5 - .5, MOSQ[1] + 158, 2.4, Q0, 10, 0, 0, 0);
   for (const [x, z, s] of [[-150, -230, 1], [150, -230, 1], [-150, 110, 1], [150, 110, 1], [-25, -237, 1], [25, -237, 1], [-75, 190, .7], [75, 190, .7], [-75, 110, .66], [75, 110, .66]]) {
     solid(12, MOSQ[0] + x, my, MOSQ[1] + z, s, yawQ(PI / 8), 7, .5, 0, 0);
     solid(17, MOSQ[0] + x, my + 91.3 * s, MOSQ[1] + z, 1.4 * s, Q0, 10, 0, 0, 0);
@@ -411,17 +423,17 @@ function makeWorld(D, T, NA, FAR, flyPts) {
 
   // --- the city: low houses spreading out, hotels close to the Haram
   rseed(5);
-  const CITY = [[12, 7, 14], [16, 10, 12], [10, 13, 10], [22, 16, 18], [26, 34, 22], [30, 52, 26], [20, 70, 20]];
   for (let gz = -3300; gz < 900; gz += 30) for (let gx = -3200; gx < 3200; gx += 30) {
     const x = gx + rr(-5, 5), z = gz + rr(-5, 5), c = farB(x, z, 0);
     if (((gx + 3200) / 30) % 5 === 0 || ((gz + 3300) / 30) % 6 === 0) continue;
-    if (c < .05 || c > .95 || rnd() > c * 1.15) continue;
+    if (c < .05 || c > .95 || rnd() > min(1, c * 2.4)) continue;
     const dm = hypot(x - MOSQ[0], (z - MOSQ[1]) * 1.15);
     let t = rnd() < .5 ? 0 : rnd() < .6 ? 1 : 2;
     if (rnd() < .25) t = 3;
     if (dm < 650 && rnd() < .6) t = 4 + (rnd() < .5 ? 1 : 0) + (rnd() < .06 ? 1 : 0);
     else if (dm < 1100 && rnd() < .2) t = 4;
-    const sc = rr(.85, 1.15), yaw = (rnd() < .5 ? 0 : PI / 2) + rr(-.05, .05);
+    if (z > MOSQ[1] + 300 && abs(x - MOSQ[0]) < 700) t = min(t, 2);
+    const sc = rr(.94, 1.04), yaw = (rnd() < .5 ? 0 : PI / 2) + rr(-.02, .02);
     solid(26 + t, x, fh(x, z) - .5, z, sc, yawQ(yaw), 17, rnd(), 0, CITY[t][1] * sc);
   }
   // far palm groves and gardens
@@ -444,25 +456,30 @@ function makeWorld(D, T, NA, FAR, flyPts) {
   // --- wadi: acacias, cobbles, sand-loving shrubs
   rseed(7);
   const acacias = [meshAcacia(0), meshAcacia(1), meshAcacia(2)];
-  for (let i = 0; i < 18; i++) {
-    const z = rr(-240, 240), x = wadiX(z) + rr(-16, 16);
-    if (nearFly(x, z, 6) || nearPose(x, z, 5)) continue;
+  // hand-placed acacias framing viewpoint 3 (forward, right of its view), then a scatter along the wadi
+  const rel = (i, f, r) => { const p = POSES[i]; let fx = p[3] - p[0], fz = p[5] - p[2]; const l = hypot(fx, fz); fx /= l; fz /= l; return [p[0] + fx * f - fz * r, p[2] + fz * f + fx * r]; };
+  const ACS = [rel(2, 15, -8), rel(2, 30, 10), rel(2, 48, -14), rel(2, 9, 13)];
+  for (let i = 0; i < 18; i++) { const z = rr(-240, 240); ACS.push([wadiX(z) + rr(-16, 16), z]); }
+  for (let i = 0; i < ACS.length; i++) {
+    const [x, z] = ACS[i];
+    if (i > 3 && (nearFly(x, z, 6) || nearPose(x, z, 5))) continue;
     const k = (rnd() * 3) | 0, s = rr(.9, 1.4), y = gy(x, z), q = yawQ(rnd() * TAU);
     solid(23 + k, x, y - .1, z, s, q, 16, rnd(), 0, 0);
     for (const tp of acacias[k].tops) {
       const w = qrot3(q, tp.map((v) => v * s));
-      for (let j = 0; j < 70; j++) {
-        const a = rnd() * TAU, r = sqrt(rnd()) * 2.1 * s;
-        leaf(big, x + w[0] + cos(a) * r, y + w[1] + rr(-.3, .35), z + w[2] + sin(a) * r, rr(.35, .6), rnd() * TAU, rr(1.2, 1.7), .1, 4, 4, rnd(), rnd(), .4);
+      for (let j = 0; j < 240; j++) {
+        const a = rnd() * TAU, r = sqrt(rnd()) * 2.3 * s;
+        leaf(big, x + w[0] + cos(a) * r, y + w[1] + rr(-.25, .3) - r * r * .03, z + w[2] + sin(a) * r, rr(.4, .7), rnd() * TAU, rr(1.35, 1.75), .16, 4, 4, rnd(), rnd(), .35);
       }
     }
   }
   rseed(8);
-  for (let i = 0; i < 9000; i++) {
-    const z = rr(-250, 250), x = wadiX(z) + rr(-22, 22), y = gy(x, z);
+  for (let i = 0; i < 11000; i++) {
+    const near3 = i < 260, c3 = rel(2, rr(5, 26), rr(-10, 10));
+    const z = near3 ? c3[1] : rr(-250, 250), x = near3 ? c3[0] : wadiX(z) + rr(-22, 22), y = gy(x, z);
     if (nearFly(x, z, 1.5) || nearPose(x, z, 1.5)) continue;
-    const sc = .06 + .35 * pow(rnd(), 2.2), q = qRand();
-    if (!(nth++ % THIN)) solid(7, x, y + sc * .1, z, sc, q, 4, rnd(), 40, 0);
+    const sc = .05 + .28 * pow(rnd(), 2.6), q = qRand();
+    if (!(nth++ % THIN)) solid(7, x, y - sc * .15, z, sc, q, 4, rnd(), 40, 0);
   }
   const shrub = (x, z, n, s) => {
     const y = gy(x, z), yw = rnd() * TAU;

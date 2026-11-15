@@ -4,11 +4,11 @@ Built with the `worldsmith` skill (`~/.shared/skills/worldsmith`). Brief: `promp
 
 ## State (update after every phase)
 
-- Phase: 5 (critic loop), iteration 04 captured at 2560x1440
-- Last good capture: verify/iter-04 (6 poses, 18 flight frames, perf.txt)
-- Perf (iter-04, RTX 3070, 2560x1440, 60 s flight): GPU avg 4.49 ms, p99 6.14, max 6.62 -> gate passes
-- Critic: iteration 04 running
-- Next step: read the critic's review into verify/iter-04/critic.md, fix top defects, re-capture as iter-05
+- Phase: 5 (critic loop), iteration 06 captured at 2560x1440
+- Last good capture: verify/iter-06 (6 poses, 18 flight frames, perf.txt)
+- Perf (iter-06, RTX 3070, 2560x1440, 60 s flight): GPU avg 5.22 ms, p99 7.33, max 8.33 -> gate passes
+- Critic: iter-04 highest = blocker (fixed: Masjid legibility, crescent finials, Uhud, lava, water, city); iter-06 running
+- Next step: save the iter-06 review to verify/iter-06/critic.md, fix, re-capture as iter-07
 - Not done yet: phase 6 polish checks (touch, quality levels on Low), README + screenshots, final critic pass
 - Decisions locked with Moey (2026-11-15): land around the Masjid (not the courtyard close-up, not the
   7th-century city; those are later worlds); walk with gravity, F toggles flight.

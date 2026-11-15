@@ -93,7 +93,7 @@ const pTerrain = scenePipe(mSolid, 'vs', 'fs', [vbSolid, ibSolid], { cull: 'back
 const pSolid = scenePipe(mSolid, 'vs', 'fs', [vbSolid, ibSolid]);
 const pLeaf9 = scenePipe(mLeaf, 'vs', 'fs', [ibLeaf], { strip: true, a2c: true, constants: { ROWS: 11 } });
 const pLeaf5 = scenePipe(mLeaf, 'vs', 'fs', [ibLeaf], { strip: true, a2c: true, constants: { ROWS: 6 } });
-const pLeaf3 = scenePipe(mLeaf, 'vs', 'fs', [ibLeaf], { strip: true, a2c: true, constants: { ROWS: 3 } });
+const pLeaf3 = scenePipe(mLeaf, 'vs', 'fs', [ibLeaf], { strip: true, a2c: true, constants: { ROWS: 3, FAR: 1500 } });
 const pGrass = scenePipe(mLeaf, 'vs', 'fs', [ibLeaf], { strip: true, constants: { ROWS: 4, FAR: 70 } });
 const pFarLeaf = scenePipe(mLeaf, 'vs', 'fs', [ibLeaf], { strip: true, constants: { ROWS: 3, FAR: 6000 } });
 const pBird = scenePipe(mAnim, 'vs', 'fs', [vbSolid, ibAnim]);
@@ -237,7 +237,7 @@ const W = Wd.worldMeshes;
 const meshes = [...Wd.trunks, meshDates(), meshRock(1, 2, 0), meshRock(7, 3, 0), meshRock(13, 2, 1), meshRock(22, 1, 1),
   meshFarTrunk(), meshNabawi(), meshNabawiDomes(), meshGreenDome(), meshMinaret(MINARET_N, 7, 20), meshUmbrella(), meshQubaBody(), meshQubaDomes(),
   meshMinaret(MINARET_Q, 4.4, 12), meshFinial(1), W.walls, W.chan, W.water, W.well, W.wood, ...Wd.acacias,
-  ...[[12, 7, 14], [16, 10, 12], [10, 13, 10], [22, 16, 18], [26, 34, 22], [30, 52, 26], [20, 70, 20]].map((d) => meshCityBox(...d)), meshBird()].map((m) => m.build());
+  ...CITY.map((d) => meshCityBox(...d)), meshBird()].map((m) => m.build());
 let nV = 0, nI = 0;
 for (const m of meshes) { m.v0 = nV; m.i0 = nI; nV += m.nv; nI += m.ib.length; }
 const allV = new Uint8Array(nV * 16), allI = new Uint32Array(nI);
@@ -343,7 +343,7 @@ if (hasTS) {
 // ---------------------------------------------------------------- frame
 let hud = false, fly = false;
 let kf = 0, kb = 0, kl = 0, kr = 0, ku = 0, kd = 0, ks = 0, mdx = 0, mdy = 0, lkx = 0, lky = 0, l2x = 0, l2y = 0, hN = 0, hMax = 0, hMin = 1e9, hPer = 1e9, hLate = 0, hTot = 0, tId = -1, tN = 0, tx0 = 0, ty0 = 0, tx = 0, ty = 0;
-const TANH = 0.58, NEAR_ = 0.1, EXPO = 0.8, RAYS = 1;
+const TANH = 0.58, NEAR_ = 0.1, EXPO = 0.74, RAYS = 1;
 const submitList = [null];
 const rowOrd = new Uint8Array(CELLS);
 // draws the cells of a cell-sorted buffer that are in view and within [minD, maxD) (scaled by det, except the
