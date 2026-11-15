@@ -8,8 +8,8 @@ Built with the `worldsmith` skill (`~/.shared/skills/worldsmith`). Brief: `promp
 - Iter-12 approach changes: date-palm crowns rebuilt (36-48 long arching fronds), grove sun shafts visible, city as rotated districts with lanes, stone-coloured near granite, haze gold-near/blue-far
 - Last good capture: verify/iter-13; minified index.html: 0 errors
 - Perf (iter-13, RTX 3070, 2560x1440, 60 s flight): GPU avg 5.63 ms, p99 6.78, max 7.55 -> gate passes
-- Critic: iter-04 blocker; iter-06..12 major (palms minor since iter-12); iter-13 running
-- Next step: save the iter-13 review; fix; repeat until <= minor (re-ask Moey if it plateaus again)
+- Critic: iter-04 blocker; iter-06..13 major. Critic is now inconsistent run to run on unchanged elements (palms minor at 12, major at 13; water 4 different verdicts).
+- Next step: WAITING FOR MOEY (second plateau): ship as is, or change the gate (e.g. majority of 3 critics) before iterating. Watchdog deleted while waiting.
 - Smoke test passed: walking, F flight up, F back to walking lands under gravity (index.html, 0 errors)
 - Not done yet: phase 6 polish checks (touch, quality levels on Low), README + screenshots, final critic pass
 - Decisions locked with Moey (2026-11-15): land around the Masjid (not the courtyard close-up, not the
