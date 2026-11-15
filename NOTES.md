@@ -6,10 +6,10 @@ Built with the `worldsmith` skill (`~/.shared/skills/worldsmith`). Brief: `promp
 
 - Phase: 5 (critic loop), iteration 12 captured at 2560x1440. Moey chose "keep iterating" (2026-11-15) after the iter-11 plateau.
 - Iter-12 approach changes: date-palm crowns rebuilt (36-48 long arching fronds), grove sun shafts visible, city as rotated districts with lanes, stone-coloured near granite, haze gold-near/blue-far
-- Last good capture: verify/iter-12; minified index.html: 0 errors
-- Perf (iter-12, RTX 3070, 2560x1440, 60 s flight): GPU avg 4.79 ms, p99 6.36, max 8.55 -> gate passes
-- Critic: iter-04 blocker; iter-06..11 major; iter-12 running
-- Next step: save the iter-12 review; fix; repeat until <= minor (re-ask Moey if it plateaus again)
+- Last good capture: verify/iter-13; minified index.html: 0 errors
+- Perf (iter-13, RTX 3070, 2560x1440, 60 s flight): GPU avg 5.63 ms, p99 6.78, max 7.55 -> gate passes
+- Critic: iter-04 blocker; iter-06..12 major (palms minor since iter-12); iter-13 running
+- Next step: save the iter-13 review; fix; repeat until <= minor (re-ask Moey if it plateaus again)
 - Smoke test passed: walking, F flight up, F back to walking lands under gravity (index.html, 0 errors)
 - Not done yet: phase 6 polish checks (touch, quality levels on Low), README + screenshots, final critic pass
 - Decisions locked with Moey (2026-11-15): land around the Masjid (not the courtyard close-up, not the

@@ -360,8 +360,8 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     alb = mix(alb, mix(vec3f(.21, .14, .085), vec3f(.12, .15, .055), ss(.35, .65, B.c)), irr * .85);
     let bas = mix(vec3f(.035, .034, .034), vec3f(.075, .066, .06), ss(.45, .8, C.c)) * (.55 + .9 * F.h * C.h);
     let lv = max(lava, ss(.04, .25, lava));
-    alb = mix(alb, mix(bas, vec3f(.44, .32, .20) * (.8 + .3 * B.h), flt * ss(.7, .92, Lg.a + .3 * B.c) * .45), lv);
-    var gra = select(mix(vec3f(.38, .29, .25), vec3f(.52, .42, .35), A.c), mix(vec3f(.46, .19, .10), vec3f(.62, .31, .17), A.c), far) * (.68 + .55 * B.h);
+    alb = mix(alb, mix(bas, vec3f(.40, .30, .20) * (.8 + .3 * B.h), flt * ss(.78, .95, Lg.a + .3 * B.c) * .25), lv);
+    var gra = select(mix(vec3f(.30, .22, .18), vec3f(.42, .32, .26), A.c), mix(vec3f(.46, .19, .10), vec3f(.62, .31, .17), A.c), far) * (.68 + .55 * B.h);
     gra = mix(gra, vec3f(.16, .11, .09), ss(.5, .75, fract(i.wp.y * .11 + A.h * 1.5)) * select(.45, 0., far));
     gra = mix(gra, gra * vec3f(.55, .5, .5), ss(.55, .8, B.c) * f32(far) * .5);
     alb = mix(alb, gra, sat(gran * 1.4) * (1. - .1 * flt));
@@ -370,18 +370,18 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     alb *= mix(1., .6 + .8 * F.h, fk);
     bump = select(1.3, mix(.8, .2, ss(.05, .2, city)), far); gloss = mix(.03, .16, lava * (1. - flt)) * ss(120., 20., dist);
   } else if (mat == 2) {
-    alb = mix(vec3f(.033, .032, .031), vec3f(.07, .055, .046), ss(.45, .75, A.c)) * (.6 + .8 * B.h);
-    alb = mix(alb, vec3f(.40, .28, .17), flt * ss(.65, .9, B.c) * .3); bump = 1.8; gloss = .28;
+    alb = mix(vec3f(.028, .027, .027), vec3f(.06, .05, .045), ss(.45, .75, C.c)) * (.6 + .8 * F.h);
+    alb = mix(alb, vec3f(.40, .28, .17), flt * ss(.75, .95, B.c) * .2); bump = 1.8; gloss = .3;
   } else if (mat == 3) {
-    alb = mix(vec3f(.27, .22, .19), vec3f(.40, .34, .29), A.c) * (.6 + .6 * B.h); bump = 1.4;
+    alb = mix(vec3f(.22, .17, .14), vec3f(.33, .26, .21), C.c) * (.65 + .55 * B.h); bump = 1.2;
   } else if (mat == 4) {
     alb = mix(vec3f(.54, .45, .36), vec3f(.44, .36, .29), hs(sd * 91.)) * (.75 + .4 * B.h); bump = .6; gloss = .12;
   } else if (mat == 5) {
     // mud brick: courses of sun-dried bricks, rendered and eroded, darker at the foot
     let row = floor(fv / .34); let bx = fract(fu / .7 + row * .5); let by = fract(fv / .34);
     let mortar = (1. - ss(.0, .1, by) * ss(1., .9, by)) * .6 + (1. - ss(.0, .07, bx) * ss(1., .93, bx)) * .5;
-    let render = ss(.45, .65, B.c + .25 * A.h);
-    alb = mix(vec3f(.52, .35, .21), vec3f(.44, .29, .17), hs(row * 7.1 + floor(fu / .7 + row * .5)) * .6) * (.78 + .4 * C.h);
+    let render = ss(.55, .7, C.c + .2 * B.h);
+    alb = mix(vec3f(.47, .32, .19), vec3f(.39, .26, .15), hs(row * 7.1 + floor(fu / .7 + row * .5)) * .6) * (.8 + .35 * C.h);
     alb = mix(alb * (1. - .75 * mortar * (1. - render)) * (.85 + .3 * hs(row * 3.3 + floor(fu / .7 + row * .5) * 1.7)), vec3f(.56, .41, .28) * (.75 + .4 * B.h), render * .12);
     alb *= mix(.7, 1., ss(0., .6, fv)); bump = .7;
   } else if (mat == 6 || mat == 7 || mat == 17) {
@@ -413,7 +413,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
       emi = vec3f(1., .7, .4) * (.04 * a1i + .07 * a2) * step(.5, i.m.w);
       gloss = mix(.08, .5, a2);
       let seam = (1. - ss(.0, .04, abs(fract(i.op.x / 12.) - .5) * 2. - .9) * ss(.0, .04, abs(fract(i.op.z / 12.) - .5) * 2. - .9));
-      alb = mix(alb, vec3f(.86, .84, .80) * (1. - .18 * seam), ss(.6, .9, on.y) * f32(mat == 7));
+      alb = mix(alb, vec3f(.84, .78, .68) * (1. - .2 * seam) * (.9 + .2 * B.c), ss(.6, .9, on.y) * f32(mat == 7));
       let band = ss(.92, .97, fract(fv / select(7.9, 16.6, mat == 7))) * wall;
       alb = mix(alb, alb * vec3f(.92, .84, .7), band * .6);
     }
@@ -426,7 +426,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
   } else if (mat == 10) {
     alb = vec3f(1., .70, .28); gloss = .9; metal = 1.; bump = 0.;
   } else if (mat == 11) {
-    alb = vec3f(.86, .85, .81) * (.92 + .1 * B.h); gloss = .2; bump = .1;
+    alb = vec3f(.74, .73, .70) * (.92 + .1 * B.h); gloss = .12; bump = .1;
   } else if (mat == 12 || mat == 18) {
     // date palm trunk: spiral of cut leaf bases makes a diamond crosshatch
     let ang = atan2(i.op.z - sd * 37., i.op.x - sd * 37.) / TAU;

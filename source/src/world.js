@@ -217,7 +217,7 @@ function meshDates() { rseed(320); return icosphere(1, (x, y, z) => { const r = 
 function meshRock(sd, sub, round_) {
   if (LV > 1 && sub > 1) sub--;
   rseed(100 + sd);
-  const pl = []; for (let i = 0; i < (round_ ? 0 : 5); i++) { const q = qRand(); const l = hypot(q[0], q[1], q[2]) || 1; pl.push([q[0] / l, q[1] / l, q[2] / l, rr(.65, .95)]); }
+  const pl = []; for (let i = 0; i < (round_ ? 0 : 8); i++) { const q = qRand(); const l = hypot(q[0], q[1], q[2]) || 1; pl.push([q[0] / l, q[1] / l, q[2] / l, rr(.5, .85)]); }
   return icosphere(sub, (x, y, z) => {
     const r = 1 + (fbm(x * 1.6 + sd, y * 1.6, z * 1.6, 2) - .5) * (round_ ? .5 : .9);
     let px = x * r, py = y * r * (round_ ? .75 : .7), pz = z * r;
@@ -412,28 +412,28 @@ function makeWorld(D, T, NA, FAR, flyPts) {
   const my = fh(MOSQ[0], MOSQ[1]);
   solid(9, MOSQ[0], my, MOSQ[1], MS, Q0, 7, .1, 0, 1);
   solid(10, MOSQ[0], my, MOSQ[1], MS, Q0, 9, .2, 0, 0);
-  const GD = 1.6 * MS;
-  solid(11, MOSQ[0] + 42 * MS, my + 13 * MS, MOSQ[1] + 158 * MS, GD, Q0, 8, .3, 0, 0);
-  solid(17, MOSQ[0] + 42 * MS, my + 13 * MS + (3.4 + 5 + .35 + 7.6 * 1.18 - .3) * GD, MOSQ[1] + 158 * MS, 1.5 * GD, Q0, 10, 0, 0, 0);
+  const GD = 1.4 * MS;
+  solid(11, MOSQ[0] + 40 * MS, my + 13 * MS, MOSQ[1] + 142 * MS, GD, Q0, 8, .3, 0, 0);
+  solid(17, MOSQ[0] + 40 * MS, my + 13 * MS + (3.4 + 5 + .35 + 7.6 * 1.18 - .3) * GD, MOSQ[1] + 142 * MS, 1.5 * GD, Q0, 10, 0, 0, 0);
   for (const [x, z, s] of [[-150, -230, 1], [150, -230, 1], [-150, 110, 1], [150, 110, 1], [-25, -237, 1], [25, -237, 1], [-75, 190, .7], [75, 190, .7], [-75, 110, .66], [75, 110, .66]]) {
     solid(12, MOSQ[0] + x * MS, my, MOSQ[1] + z * MS, s * MS, yawQ(PI / 8), 7, .5, 0, 0);
     solid(17, MOSQ[0] + x * MS, my + 91.3 * s * MS, MOSQ[1] + z * MS, 1.6 * s * MS, Q0, 10, 0, 0, 0);
   }
-  for (let x = -238; x <= 238; x += 34) for (let z = -320; z <= 320; z += 34) {
+  for (let x = -240; x <= 240; x += 40) for (let z = -320; z <= 320; z += 40) {
     const lx = x, lz = z - 20;
     if (lx > -175 && lx < 175 && lz > -255 && lz < 222) continue;
-    solid(13, MOSQ[0] + lx * MS, my, MOSQ[1] + lz * MS, MS * 1.05, Q0, 11, rnd(), 0, 0);
+    solid(13, MOSQ[0] + lx * MS, my, MOSQ[1] + lz * MS, MS * .82, Q0, 11, rnd(), 0, 0);
   }
 
   // --- the city: low houses spreading out, hotels close to the Haram
   rseed(5);
   for (let dz = -3240; dz < 900; dz += 360) for (let dx = -3240; dx < 3240; dx += 360) {
    const near = hypot(dx - MOSQ[0], dz - MOSQ[1]) < 700, ang = near ? rr(-.03, .03) : rr(-.55, .55), ca = cos(ang), sa = sin(ang);
-   const sx = 4 + (rnd() * 3 | 0), sz = 4 + (rnd() * 3 | 0), lane = rnd() * 12 | 0;
+   const sx = 5 + (rnd() * 3 | 0), sz = 5 + (rnd() * 3 | 0), lane = rnd() * 12 | 0;
    for (let j = 0; j < 12; j++) for (let i = 0; i < 12; i++) {
-    if (i % sx === 0 || j % sz === 0 || (i + j) === lane + 6 || (i === lane && j > 4)) continue;
+    if (i % sx === 0 || j % sz === 0 || (i === lane && j > 6)) continue;
     const lx = i * 30 - 165 + rr(-3, 3), lz = j * 30 - 165 + rr(-3, 3), x = dx + lx * ca - lz * sa, z = dz + lx * sa + lz * ca, c = farB(x, z, 0), gx = x, gz = z;
-    if (c < .05 || c > .95 || rnd() > min(1, c * 2.2) || rnd() < .1) continue;
+    if (c < .05 || c > .95 || rnd() > min(1, c * 3.2) || rnd() < .05) continue;
     const dm = hypot(x - MOSQ[0], (z - MOSQ[1]) * 1.15);
     let t = CITY_LOW[(rnd() * CITY_LOW.length) | 0];
     if (dm < 650 && rnd() < .45) t = rnd() < .55 ? 6 : rnd() < .88 ? 7 : 8;
