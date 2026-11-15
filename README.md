@@ -44,7 +44,7 @@ It works offline. It needs a browser with **WebGPU**.
 
 | | Keyboard & mouse |
 |---|---|
-| Look around | Move the mouse |
+| Look around | Move the mouse (or drag with the left button where the mouse cannot be captured) |
 | Walk | `W` `A` `S` `D` |
 | Run | Hold `Shift` |
 | Fly / walk | `F` (when flying, `Q` / `E` go down / up) |

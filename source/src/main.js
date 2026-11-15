@@ -538,7 +538,8 @@ addEventListener('keyup', (e) => key(e, 0));
 const release = () => { kf = kb = kl = kr = ku = kd = ks = 0; tId = -1; tN = 0; };
 const capture = () => { sound(); const p = canvas.requestPointerLock({ unadjustedMovement: true }); if (p && p.catch) p.catch(() => canvas.requestPointerLock()).catch(() => 0); };
 canvas.addEventListener('click', capture);
-addEventListener('mousemove', (e) => { if (document.pointerLockElement === canvas) { mdx += e.movementX; mdy += e.movementY; } });
+// where pointer lock is refused (embedded pages, some browsers) dragging with the left button looks around instead
+addEventListener('mousemove', (e) => { if (document.pointerLockElement === canvas || (e.buttons & 1 && !menu)) { mdx += e.movementX; mdy += e.movementY; } });
 addEventListener('blur', release);
 const touch = (e) => {
   e.preventDefault(); sound(); tN = e.touches.length;

@@ -3,3 +3,4 @@ verify/iter-*/
 !verify/final/
 .chrome-profile/
 dev.html
+publish/
