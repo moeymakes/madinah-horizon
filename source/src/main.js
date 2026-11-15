@@ -512,6 +512,7 @@ function frame(now) {
     // walking: the body is a ball 1.2 m below the eyes; flying: the camera itself
     const off = fly ? 0 : 1.2;
     F[CY] -= off; collide(); F[CY] += off;
+    if (fly && kd && (grounded || (max(abs(F[CX]), abs(F[CZ])) > 244 && F[CY] <= fl + .05))) { fly = false; F[VY] = 0; }
   }
   render();
   if (hud) {
@@ -526,7 +527,8 @@ const pose = (i) => { const p = POSES[i]; fly = !!p[6]; F[VX] = F[VY] = F[VZ] = 
 const key = (e, v) => {
   switch (e.code) {
     case 'KeyW': kf = v; break; case 'KeyS': kb = v; break; case 'KeyA': kl = v; break; case 'KeyD': kr = v; break;
-    case 'KeyE': ku = v; break; case 'KeyQ': kd = v; break; case 'ShiftLeft': case 'ShiftRight': ks = v; break;
+    // E lifts off from walking; Q descends, and touching the ground while descending lands back to walking
+    case 'KeyE': ku = v; if (v && !fly) { fly = true; F[VY] = 0; } break; case 'KeyQ': kd = v; break; case 'ShiftLeft': case 'ShiftRight': ks = v; break;
     default: if (v && !e.repeat) {
       if (e.code === 'KeyH') { hud = !hud; hTot = 0; hPer = 1e9; info.textContent = ''; }
       else if (e.code === 'KeyM') mute();

@@ -47,7 +47,8 @@ It works offline. It needs a browser with **WebGPU**.
 | Look around | Move the mouse (or drag with the left button where the mouse cannot be captured) |
 | Walk | `W` `A` `S` `D` |
 | Run | Hold `Shift` |
-| Fly / walk | `F` (when flying, `Q` / `E` go down / up) |
+| Fly / walk | `F`, or `E` to lift off from walking |
+| Up / down | `E` / `Q` (descending onto the ground lands you back to walking) |
 | Jump to a viewpoint | `1` to `6` |
 | Menu | `Esc` |
 | Sound on / off | `M` |
