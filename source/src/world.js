@@ -316,8 +316,8 @@ function makeWorld(D, T, NA, FAR, flyPts) {
     const nF = (young ? 14 : 22) + (rnd() * 9 | 0), off = rnd() * TAU, ls = (young ? .7 : 1) * rr(.9, 1.1);
     for (let f = 0; f < nF; f++) {
       const t = f / nF, tilt = mix(.22, 1.95, pow(t, .8)) + rr(-.12, .12);
-      const len = (3.3 + 1.3 * rnd()) * ls * mix(.8, 1.04, t);
-      leaf(big, cx, cy + .25, cz, len, off + f * 2.39996 + rr(-.15, .15), tilt, .54 * len / 4, H, 0, rnd(), rnd(), clamp(mix(.25, .8, t) + rr(-.1, .1), 0, 1));
+      const len = (3.9 + 1.4 * rnd()) * ls * mix(.82, 1.04, t);
+      leaf(big, cx, cy + .25, cz, len, off + f * 2.39996 + rr(-.15, .15), tilt, .48 * len / 4, H, 0, rnd(), rnd(), clamp(mix(.18, .62, t) + rr(-.08, .08), 0, 1));
     }
     if (!young) for (let f = 4 + (rnd() * 5 | 0); f > 0; f--) leaf(big, cx, cy - .4, cz, rr(2.4, 3.3), rnd() * TAU, rr(2.45, 2.95), .45, H, 1, rnd(), rnd(), .25);
     if (!young && H > 6.5) for (let k = 3 + (rnd() * 3 | 0); k > 0; k--) { const a = rnd() * TAU; solid(3, cx + cos(a) * .55, cy - .75 - rnd() * .3, cz + sin(a) * .55, rr(.2, .27), yawQ(rnd() * TAU), 13, rnd(), 80, H); }

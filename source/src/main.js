@@ -85,7 +85,7 @@ const shadowPipe = (m, vsE, buffers, o = {}) => device.createRenderPipeline({ la
   vertex: { module: m, entryPoint: vsE, buffers, constants: o.constants },
   fragment: o.fs ? { module: m, entryPoint: o.fs, targets: [] } : undefined,
   primitive: { topology: o.strip ? 'triangle-strip' : 'triangle-list', cullMode: o.cull || 'none' },
-  depthStencil: { format: DEPTH, depthWriteEnabled: true, depthCompare: 'less', depthBias: 2, depthBiasSlopeScale: 1.5 } });
+  depthStencil: { format: DEPTH, depthWriteEnabled: true, depthCompare: 'less', depthBias: 3, depthBiasSlopeScale: 3 } });
 
 await say('Preparing the light…', 0.05, 300);
 const mSolid = mod(W_SOLID), mLeaf = mod(W_LEAF), mAnim = mod(W_ANIM), mSky = mod(W_SKY), mSpr = mod(W_SPR);

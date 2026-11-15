@@ -235,7 +235,7 @@ fn skyCol(rd: vec3f, sun: vec3f) -> vec3f {
   let hor = mix(vec3f(.74, .68, .66), vec3f(1.35, .84, .44), tw * tw);
   var c = mix(hor, ZEN, pow(y, .5));
   c += vec3f(1., .5, .2) * .35 * pow(sat(1. - y * 4.), 3.) * tw * tw * tw;
-  c += SUNC * (.04 * pow(max(mu, 0.), 5.) + .16 * pow(max(mu, 0.), 40.) + .45 * pow(max(mu, 0.), 500.));
+  c += SUNC * (.04 * pow(max(mu, 0.), 5.) + .12 * pow(max(mu, 0.), 40.) + .3 * pow(max(mu, 0.), 500.));
   return mix(c, mix(vec3f(.46, .46, .5), vec3f(1., .66, .4), tw), sat(-rd.y * 5.));
 }
 // aerial perspective: exponential-height haze integrated in closed form along the view ray; distant things
@@ -356,7 +356,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     alb = mix(vec3f(.52, .34, .19), vec3f(.64, .45, .27), sat(A.c * .9 + Lg.a * .9 - .55)) * (.7 + .45 * mix(B.h, Lg.b, .45)) * (.84 + .32 * C.c);
     alb *= mix(vec3f(1.), vec3f(1.06, .95, .82), ss(.4, .7, Lg.a));
     alb = mix(alb, vec3f(.36, .26, .18) * (.8 + .4 * C.h), ss(.55, .75, B.c) * .35);
-    alb = mix(alb, vec3f(.76, .62, .45) * (.86 + .25 * B.h), wadi);
+    alb = mix(alb, vec3f(.66, .51, .34) * (.86 + .25 * B.h), wadi);
     alb = mix(alb, mix(vec3f(.21, .14, .085), vec3f(.12, .15, .055), ss(.35, .65, B.c)), irr * .85);
     let bas = mix(vec3f(.035, .034, .034), vec3f(.075, .066, .06), ss(.45, .8, C.c)) * (.55 + .9 * F.h * C.h);
     let lv = max(lava, ss(.04, .25, lava));
@@ -373,7 +373,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     alb = mix(vec3f(.033, .032, .031), vec3f(.07, .055, .046), ss(.45, .75, A.c)) * (.6 + .8 * B.h);
     alb = mix(alb, vec3f(.40, .28, .17), flt * ss(.65, .9, B.c) * .3); bump = 1.8; gloss = .28;
   } else if (mat == 3) {
-    alb = mix(vec3f(.26, .17, .13), vec3f(.38, .27, .20), A.c) * (.6 + .6 * B.h); bump = 1.4;
+    alb = mix(vec3f(.27, .22, .19), vec3f(.40, .34, .29), A.c) * (.6 + .6 * B.h); bump = 1.4;
   } else if (mat == 4) {
     alb = mix(vec3f(.54, .45, .36), vec3f(.44, .36, .29), hs(sd * 91.)) * (.75 + .4 * B.h); bump = .6; gloss = .12;
   } else if (mat == 5) {
@@ -459,7 +459,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
   ao = select(ao, .5 + .5 * ao, mat >= 5 && mat != 12 && mat != 13);
   ao = select(ao, .35 + .65 * ao, mat == 12 || mat == 13);
   ao = select(ao, .25 + .75 * ao, mat == 2 || (mat <= 1 && lvN > .5));
-  let sh = select(shadow9(i.wp + n0 * (.3 + dist * .002)), sat(i.ao * 1.6 - .3), far);
+  let sh = select(shadow9(i.wp + n0 * (.45 + dist * .003) + g.sun.xyz * .25), sat(i.ao * 1.6 - .3), far);
   let E = SUNC * sh;
   let ndl = sat(dot(N, L));
   let am = amb(N, vv.y) * ao;
@@ -522,7 +522,7 @@ fn grassSway(p: vec2f, h: f32, t: f32) -> vec2f {
   return o;
 }
 fn leafCov(i: LO) -> f32 {
-  let s = i.uv.y * 30. + abs(i.uv.x) * 2.6 + i.sd.x * 7.;
+  let s = i.uv.y * 36. + abs(i.uv.x) * 3. + i.sd.x * 7.;
   let fw = fwidth(s);
   let f = abs(fract(s) - .5) * 2.;
   let lw = .56 * (1. - .45 * abs(i.uv.x));
@@ -716,7 +716,7 @@ fn tmap(x: vec3f) -> vec3f { return clamp((x * (2.51 * x + .03)) / (x * (2.43 * 
   }
   var c = textureLoad(tS, px, 0).rgb + acc / ws;
   let bl = textureSampleLevel(tB, sC, uv, 0.).rgb;
-  c = mix(c, bl, .035) + bl * .02;
+  c = mix(c, bl, .025) + bl * .012;
   c *= g.mis.x;
   let q = uv - .5;
   c *= 1. - dot(q, q) * .45;
