@@ -313,13 +313,13 @@ function makeWorld(D, T, NA, FAR, flyPts) {
     const tp = trunks[ti].top, top = qrot3(q, [tp[0] * s, tp[1] * s, tp[2] * s]);
     const cx = x + top[0], cy = y + top[1], cz = z + top[2];
     solid(ti, x, y, z, s, q, 12, rnd(), 0, 0);
-    const nF = (young ? 14 : 22) + (rnd() * 9 | 0), off = rnd() * TAU, ls = (young ? .7 : 1) * rr(.9, 1.1);
+    const nF = (young ? 16 : 36) + (rnd() * (young ? 6 : 13) | 0), off = rnd() * TAU, ls = (young ? .7 : 1) * rr(.8, 1.15);
     for (let f = 0; f < nF; f++) {
-      const t = f / nF, tilt = mix(.22, 1.95, pow(t, .8)) + rr(-.12, .12);
-      const len = (3.9 + 1.4 * rnd()) * ls * mix(.82, 1.04, t);
-      leaf(big, cx, cy + .25, cz, len, off + f * 2.39996 + rr(-.15, .15), tilt, .48 * len / 4, H, 0, rnd(), rnd(), clamp(mix(.18, .62, t) + rr(-.08, .08), 0, 1));
+      const t = f / nF, tilt = mix(.12, 1.5, pow(t, .7)) + rr(-.1, .1);
+      const len = (4 + 1.4 * rnd()) * ls * mix(.78, 1.05, sqrt(t));
+      leaf(big, cx, cy + .25, cz, len, off + f * 2.39996 + rr(-.12, .12), tilt, .42 * len / 4, H, 0, rnd(), rnd(), clamp(mix(.38, 1, t) + rr(-.1, .1), 0, 1));
     }
-    if (!young) for (let f = 4 + (rnd() * 5 | 0); f > 0; f--) leaf(big, cx, cy - .4, cz, rr(2.4, 3.3), rnd() * TAU, rr(2.45, 2.95), .45, H, 1, rnd(), rnd(), .25);
+    if (!young) for (let f = 2 + (rnd() * 3 | 0); f > 0; f--) leaf(big, cx, cy - .3, cz, rr(2.6, 3.6), rnd() * TAU, rr(2.5, 2.9), .28, H, 1, rnd(), rnd(), .3);
     if (!young && H > 6.5) for (let k = 3 + (rnd() * 3 | 0); k > 0; k--) { const a = rnd() * TAU; solid(3, cx + cos(a) * .55, cy - .75 - rnd() * .3, cz + sin(a) * .55, rr(.2, .27), yawQ(rnd() * TAU), 13, rnd(), 80, H); }
     // crowns shade the ground beneath them in the skylight bake
     const hx = round((cx - OX) / VS / 2), hz = round((cz - OZ) / VS / 2), hy = round((cy - OY) / VS / 2);
@@ -427,17 +427,21 @@ function makeWorld(D, T, NA, FAR, flyPts) {
 
   // --- the city: low houses spreading out, hotels close to the Haram
   rseed(5);
-  for (let gz = -3300; gz < 900; gz += 30) for (let gx = -3200; gx < 3200; gx += 30) {
-    const x = gx + rr(-5, 5), z = gz + rr(-5, 5), c = farB(x, z, 0);
-    if (((gx + 3200) / 30) % 5 === 0 || ((gz + 3300) / 30) % 6 === 0) continue;
-    if (c < .05 || c > .95 || rnd() > min(1, c * 2.4) || rnd() < .08) continue;
+  for (let dz = -3240; dz < 900; dz += 360) for (let dx = -3240; dx < 3240; dx += 360) {
+   const near = hypot(dx - MOSQ[0], dz - MOSQ[1]) < 700, ang = near ? rr(-.03, .03) : rr(-.55, .55), ca = cos(ang), sa = sin(ang);
+   const sx = 4 + (rnd() * 3 | 0), sz = 4 + (rnd() * 3 | 0), lane = rnd() * 12 | 0;
+   for (let j = 0; j < 12; j++) for (let i = 0; i < 12; i++) {
+    if (i % sx === 0 || j % sz === 0 || (i + j) === lane + 6 || (i === lane && j > 4)) continue;
+    const lx = i * 30 - 165 + rr(-3, 3), lz = j * 30 - 165 + rr(-3, 3), x = dx + lx * ca - lz * sa, z = dz + lx * sa + lz * ca, c = farB(x, z, 0), gx = x, gz = z;
+    if (c < .05 || c > .95 || rnd() > min(1, c * 2.2) || rnd() < .1) continue;
     const dm = hypot(x - MOSQ[0], (z - MOSQ[1]) * 1.15);
     let t = CITY_LOW[(rnd() * CITY_LOW.length) | 0];
     if (dm < 650 && rnd() < .45) t = rnd() < .55 ? 6 : rnd() < .88 ? 7 : 8;
     else if (dm < 1050 && rnd() < .08) t = 6;
     if (z > MOSQ[1] + 300 && abs(x - MOSQ[0]) < 700 && t >= 6 && t <= 8) t = CITY_LOW[(rnd() * 4) | 0];
-    const sc = rr(.9, 1.04), yaw = (rnd() < .5 ? 0 : PI / 2) + .06 * sin(gx * .0013 + gz * .0009) + rr(-.03, .03);
+    const sc = rr(.82, 1.04), yaw = -ang + (rnd() < .5 ? 0 : PI / 2) + rr(-.025, .025);
     solid(26 + t, x, fh(x, z) - .5, z, sc, yawQ(yaw), 17, rnd(), 0, CITY[t][1] * sc);
+   }
   }
   // far palm groves and gardens
   rseed(6);

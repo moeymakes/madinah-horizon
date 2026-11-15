@@ -247,7 +247,7 @@ fn aerialAt(c: vec3f, cam: vec3f, wp: vec3f, sun: vec3f) -> vec3f {
   let k2 = rd.y / 70.;
   let od2 = select((1. - exp(-k2 * d)) / k2, d, abs(k2) < 1e-7) * exp(-max(cam.y, -30.) / 70.);
   let T = exp(-BETA * od - vec3f(1.5e-4, 1.6e-4, 1.75e-4) * od2);
-  let ins = skyCol(normalize(vec3f(rd.x, max(rd.y, 0.) * .3 + .012, rd.z)), sun);
+  let ins = mix(skyCol(normalize(vec3f(rd.x, max(rd.y, 0.) * .3 + .012, rd.z)), sun), vec3f(.56, .64, .80), ss(900., 6000., d) * .55);
   return c * T + ins * (1. - T);
 }
 fn qrot(q: vec4f, v: vec3f) -> vec3f { return v + 2. * cross(q.xyz, cross(q.xyz, v) + q.w * v); }
@@ -361,7 +361,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     let bas = mix(vec3f(.035, .034, .034), vec3f(.075, .066, .06), ss(.45, .8, C.c)) * (.55 + .9 * F.h * C.h);
     let lv = max(lava, ss(.04, .25, lava));
     alb = mix(alb, mix(bas, vec3f(.44, .32, .20) * (.8 + .3 * B.h), flt * ss(.7, .92, Lg.a + .3 * B.c) * .45), lv);
-    var gra = mix(vec3f(.46, .19, .10), vec3f(.62, .31, .17), A.c) * (.68 + .55 * B.h);
+    var gra = select(mix(vec3f(.38, .29, .25), vec3f(.52, .42, .35), A.c), mix(vec3f(.46, .19, .10), vec3f(.62, .31, .17), A.c), far) * (.68 + .55 * B.h);
     gra = mix(gra, vec3f(.16, .11, .09), ss(.5, .75, fract(i.wp.y * .11 + A.h * 1.5)) * select(.45, 0., far));
     gra = mix(gra, gra * vec3f(.55, .5, .5), ss(.55, .8, B.c) * f32(far) * .5);
     alb = mix(alb, gra, sat(gran * 1.4) * (1. - .1 * flt));
@@ -379,7 +379,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
   } else if (mat == 5) {
     // mud brick: courses of sun-dried bricks, rendered and eroded, darker at the foot
     let row = floor(fv / .34); let bx = fract(fu / .7 + row * .5); let by = fract(fv / .34);
-    let mortar = (1. - ss(.0, .06, by) * ss(1., .94, by)) * .5 + (1. - ss(.0, .05, bx) * ss(1., .95, bx)) * .5;
+    let mortar = (1. - ss(.0, .1, by) * ss(1., .9, by)) * .6 + (1. - ss(.0, .07, bx) * ss(1., .93, bx)) * .5;
     let render = ss(.45, .65, B.c + .25 * A.h);
     alb = mix(vec3f(.52, .35, .21), vec3f(.44, .29, .17), hs(row * 7.1 + floor(fu / .7 + row * .5)) * .6) * (.78 + .4 * C.h);
     alb = mix(alb * (1. - .75 * mortar * (1. - render)) * (.85 + .3 * hs(row * 3.3 + floor(fu / .7 + row * .5) * 1.7)), vec3f(.56, .41, .28) * (.75 + .4 * B.h), render * .12);
@@ -420,7 +420,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     bump = .04;
   } else if (mat == 8) {
     let rib = ss(.4, .5, abs(fract(atan2(i.op.z, i.op.x) / TAU * 24.) - .5)) * .3;
-    alb = vec3f(.09, .36, .19) * (1. - rib) * (.92 + .16 * B.h); gloss = .5; bump = .05;
+    alb = vec3f(.06, .30, .17) * (1. - rib) * (.92 + .16 * B.h); gloss = .5; bump = .05;
   } else if (mat == 9) {
     alb = vec3f(.58, .60, .62) * (.9 + .15 * B.h); gloss = .75; metal = .6; bump = .1;
   } else if (mat == 10) {
@@ -447,7 +447,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     let N = normalize(vec3f(rpW.x * .02, 1., rpW.y * .02));
     let fr = .02 + .98 * pow(1. - sat(dot(N, V)), 5.);
     let R = reflect(-V, N);
-    var c = mix(vec3f(.02, .03, .022), skyCol(R, g.sun.xyz) * .8, .3 + .65 * fr) + SUNC * shadow1(i.wp) * pow(sat(dot(R, g.sun.xyz)), 700.) * 6.;
+    var c = mix(vec3f(.015, .025, .018), skyCol(R, g.sun.xyz) * .75, .15 + .7 * fr) + SUNC * shadow1(i.wp) * pow(sat(dot(R, g.sun.xyz)), 700.) * 6.;
     return fin(aerial(c, i.wp));
   }
   let lvN = select(0., max(nm.g * nk, fm.r * (1. - nk)), mat <= 1);
@@ -522,7 +522,7 @@ fn grassSway(p: vec2f, h: f32, t: f32) -> vec2f {
   return o;
 }
 fn leafCov(i: LO) -> f32 {
-  let s = i.uv.y * 36. + abs(i.uv.x) * 3. + i.sd.x * 7.;
+  let s = i.uv.y * 38. + abs(i.uv.x) * 4.2 + i.sd.x * 7.;
   let fw = fwidth(s);
   let f = abs(fract(s) - .5) * 2.;
   let lw = .56 * (1. - .45 * abs(i.uv.x));
@@ -666,13 +666,13 @@ const W_RAYS = S_G + W_FS + /*wgsl*/`
     let s = g.sm * vec4f(p, 1.);
     let inb = 1. - ss(NEARH - 12., NEARH - 2., max(abs(p.x), abs(p.z)));
     let vis = mix(1., textureSampleCompareLevel(tSh, sS, vec2f(s.x * .5 + .5, .5 - s.y * .5), s.z - .0004), inb);
-    let dust = .25 + exp(-max(p.y, 0.) / 9.) * 1.2;
+    let dust = (.12 + exp(-max(p.y, 0.) / 12.) * 1.6) * mix(.3, 1., inb);
     acc += vis * dust * exp(-t * .004);
   }
   let mu = dot(rd, sx);
   let gg = .72;
-  let ph = (1. - gg * gg) / pow(1. + gg * gg - 2. * gg * mu, 1.5) * .08 + .04;
-  return vec4f(min(SUNC * vec3f(1., .86, .66) * acc * dt * .011 * ph * g.mis.y, vec3f(20.)), zl);
+  let ph = (1. - gg * gg) / pow(1. + gg * gg - 2. * gg * mu, 1.5) * .07 + .1;
+  return vec4f(min(SUNC * vec3f(1., .84, .62) * acc * dt * .015 * ph * g.mis.y, vec3f(20.)), zl);
 }
 `;
 // depth-aware 3x3 blur of the half-res shafts (hides the sampling dither)
