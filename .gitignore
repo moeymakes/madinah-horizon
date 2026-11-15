@@ -1,6 +1,5 @@
 node_modules/
-verify/iter-*/
-!verify/final/
+verify/
 .chrome-profile/
 dev.html
 publish/
