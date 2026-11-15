@@ -6,17 +6,19 @@
 
 // sun 9 degrees up in the west-south-west: facing north it lights things from the left
 const SUN = (() => { const v = [-.93, .158, .37]; const l = hypot(...v); return v.map((c) => c / l); })();
-const MOSQ = [0, -1500], QUBA = [-95, -150];
+const MOSQ = [0, -1150], QUBA = [-95, -150], MS = 1.25;
 // city block sizes (w, h, d), shared by the placement and the meshes: footprints nearly fill 30 m cells
-const CITY = [[27, 7, 28], [28, 10, 26], [24, 13, 27], [28, 16, 28], [28, 34, 28], [29, 52, 29], [26, 70, 26]];
+// w, h, d, setback storey; indices 6-8 are the hotels near the Haram
+const CITY = [[27, 7, 28, 0], [28, 10, 26, 0], [24, 13, 27, 1], [28, 16, 28, 0], [26, 6, 27, 1], [20, 9, 28, 0], [28, 34, 28, 1], [29, 52, 29, 0], [26, 70, 26, 1], [22, 22, 24, 1]];
+const CITY_LOW = [0, 1, 2, 3, 4, 5, 9], NSOLID = 26 + CITY.length;
 // viewpoints: x, eye height above the ground (absolute y when flying), z, look-at x, y, z, flying
 const POSES = [
   [-12.4, 1.7, 128, -14, 6, -400, 0],
   [150, 1.7, -30, -60, 40, -700, 0],
   [-160, 1.7, 130, -110, 24, -400, 0],
-  [95, 1.7, 165, 0, 40, -1500, 0],
+  [95, 1.7, 165, 0, 40, -1150, 0],
   [-50, 1.7, -108, -98, 16, -152, 0],
-  [40, 240, -560, 0, 20, -1500, 1],
+  [230, 210, -400, 0, 25, -1190, 1],
 ];
 // 60 s scripted camera path (position + look-at, absolute heights): the generator keeps it clear of palms
 const FLY = new Float32Array([
@@ -24,7 +26,8 @@ const FLY = new Float32Array([
   -12.4, 3.5, 60, -14, 6, -300,
   -22, 4, -40, -98, 14, -150,
   -58, 5, -104, -98, 16, -150,
-  -138, 7, -90, -160, 6, 0,
+  -105, 6, -114, -150, 10, -100,
+  -140, 7, -84, -160, 6, 0,
   -162, 5, -30, -150, 4, 120,
   -158, 4.5, 60, -100, 6, 200,
   -140, 5, 140, -40, 6, 200,
@@ -35,9 +38,9 @@ const FLY = new Float32Array([
   150, 20, 60, 140, 8, -100,
   160, 18, -40, -60, 12, -700,
   130, 40, -120, -40, 20, -900,
-  95, 90, -160, 0, 30, -1450,
-  60, 170, -380, 0, 20, -1500,
-  40, 240, -560, 0, 20, -1500,
+  95, 90, -160, 0, 30, -1150,
+  170, 160, -300, 0, 25, -1190,
+  230, 210, -400, 0, 25, -1190,
 ]);
 
 // walled date gardens: grid lines of the plots east of the wadi, and a strip west of it
@@ -140,7 +143,8 @@ function meshDome(r, drum) { const m = new Mesh(); lathe(m, domeProf(r, drum), 2
 // Masjid an-Nabawi minaret: square base, three octagonal stages with balconies, a lantern and a cap
 const MINARET_N = [[3.3, 20], [3.3, 50], [4.4, 50.4], [4.4, 52], [3, 52.4], [3, 68], [4, 68.4], [4, 70], [2.5, 70.4], [2.5, 80], [3.4, 80.4], [3.4, 81.8], [2.1, 82.2], [2.1, 86], [2.35, 86.2], [2.2, 87.8], [1.3, 89.8], [.3, 91.3], [0, 91.5]];
 const MINARET_Q = [[1.9, 12], [1.9, 30], [2.5, 30.3], [2.5, 31.3], [1.7, 31.6], [1.7, 39.5], [1.95, 39.8], [1.75, 41.2], [1, 43.3], [.2, 44.8], [0, 45]];
-function meshMinaret(prof, base, baseH) {
+function meshMinaret(prof, base, baseH, k = 1) {
+  prof = prof.map(([r, h]) => [r * k, h]);
   const m = new Mesh();
   box(m, -base * .6, 0, -base * .6, base * .6, 1.4, base * .6);
   box(m, -base / 2, 1.4, -base / 2, base / 2, baseH, base / 2);
@@ -223,11 +227,12 @@ function meshRock(sd, sub, round_) {
     return [px, py, pz];
   });
 }
-function meshCityBox(w, h, d) {
+function meshCityBox(w, h, d, step) {
   const m = new Mesh();
   box(m, -w / 2, 0, -d / 2, w / 2, h, d / 2);
   box(m, -w / 2 - .2, h, -d / 2 - .2, w / 2 + .2, h + .9, d / 2 + .2);
-  if (w > 11) box(m, w * .1, h + .9, -d * .2, w * .1 + 2.4, h + 3.2, -d * .2 + 2.4);
+  if (step) { const s = h > 20 ? h * .25 : 3.3; box(m, -w * .3, h, -d * .3, w * .25, h + s, d * .3); box(m, -w * .3 - .15, h + s, -d * .3 - .15, w * .25 + .15, h + s + .7, d * .3 + .15); }
+  box(m, w * .15, h + .9, -d * .3, w * .15 + 2.4, h + 3.2, -d * .3 + 2.4); box(m, -w * .4, h + .9, d * .2, -w * .4 + 3, h + 2.2, d * .2 + 1.8);
   return m;
 }
 function meshAcacia(sd) {
@@ -330,7 +335,7 @@ function makeWorld(D, T, NA, FAR, flyPts) {
     const sp = rr(7, 8.2), jx = rr(0, sp), jz = rr(0, sp), old = rr(.6, 1);
     for (let z = p[1] + 3 + jz % 3; z < p[3] - 2; z += sp) for (let x = p[0] + 3 + jx % 3; x < p[2] - 2; x += sp) {
       if (rnd() < .17) continue;
-      const px = x + rr(-.9, .9), pz = z + rr(-.9, .9);
+      const px = x + rr(-2.2, 2.2), pz = z + rr(-2.2, 2.2);
       if (nearFly(px, pz, 4.5) || nearPose(px, pz, 3.5) || hypot(px - WELL[0], pz - WELL[1]) < 4) continue;
       const young = rnd() < .18;
       palm(px, pz, young ? rr(2.2, 4.2) : rr(5, 17) * old * rr(.85, 1.1), young);
@@ -407,18 +412,19 @@ function makeWorld(D, T, NA, FAR, flyPts) {
 
   // --- the Prophet's Mosque on the horizon
   const my = fh(MOSQ[0], MOSQ[1]);
-  solid(9, MOSQ[0], my, MOSQ[1], 1, Q0, 7, .1, 0, 1);
-  solid(10, MOSQ[0], my, MOSQ[1], 1, Q0, 9, .2, 0, 0);
-  solid(11, MOSQ[0] + 42, my + 13, MOSQ[1] + 158, 1.5, Q0, 8, .3, 0, 0);
-  solid(17, MOSQ[0] + 42, my + 13 + (3.4 + 5 + .35 + 7.6 * 1.18) * 1.5 - .5, MOSQ[1] + 158, 2.4, Q0, 10, 0, 0, 0);
+  solid(9, MOSQ[0], my, MOSQ[1], MS, Q0, 7, .1, 0, 1);
+  solid(10, MOSQ[0], my, MOSQ[1], MS, Q0, 9, .2, 0, 0);
+  const GD = 1.6 * MS;
+  solid(11, MOSQ[0] + 42 * MS, my + 13 * MS, MOSQ[1] + 158 * MS, GD, Q0, 8, .3, 0, 0);
+  solid(17, MOSQ[0] + 42 * MS, my + 13 * MS + (3.4 + 5 + .35 + 7.6 * 1.18 - .3) * GD, MOSQ[1] + 158 * MS, 1.5 * GD, Q0, 10, 0, 0, 0);
   for (const [x, z, s] of [[-150, -230, 1], [150, -230, 1], [-150, 110, 1], [150, 110, 1], [-25, -237, 1], [25, -237, 1], [-75, 190, .7], [75, 190, .7], [-75, 110, .66], [75, 110, .66]]) {
-    solid(12, MOSQ[0] + x, my, MOSQ[1] + z, s, yawQ(PI / 8), 7, .5, 0, 0);
-    solid(17, MOSQ[0] + x, my + 91.3 * s, MOSQ[1] + z, 1.4 * s, Q0, 10, 0, 0, 0);
+    solid(12, MOSQ[0] + x * MS, my, MOSQ[1] + z * MS, s * MS, yawQ(PI / 8), 7, .5, 0, 0);
+    solid(17, MOSQ[0] + x * MS, my + 91.3 * s * MS, MOSQ[1] + z * MS, 1.6 * s * MS, Q0, 10, 0, 0, 0);
   }
   for (let x = -247; x <= 247; x += 26) for (let z = -325; z <= 325; z += 26) {
     const lx = x, lz = z - 20;
     if (lx > -160 && lx < 160 && lz > -245 && lz < 200) continue;
-    solid(13, MOSQ[0] + lx, my, MOSQ[1] + lz, 1, Q0, 11, rnd(), 0, 0);
+    solid(13, MOSQ[0] + lx * MS, my, MOSQ[1] + lz * MS, MS, Q0, 11, rnd(), 0, 0);
   }
 
   // --- the city: low houses spreading out, hotels close to the Haram
@@ -428,11 +434,10 @@ function makeWorld(D, T, NA, FAR, flyPts) {
     if (((gx + 3200) / 30) % 5 === 0 || ((gz + 3300) / 30) % 6 === 0) continue;
     if (c < .05 || c > .95 || rnd() > min(1, c * 2.4)) continue;
     const dm = hypot(x - MOSQ[0], (z - MOSQ[1]) * 1.15);
-    let t = rnd() < .5 ? 0 : rnd() < .6 ? 1 : 2;
-    if (rnd() < .25) t = 3;
-    if (dm < 650 && rnd() < .6) t = 4 + (rnd() < .5 ? 1 : 0) + (rnd() < .06 ? 1 : 0);
-    else if (dm < 1100 && rnd() < .2) t = 4;
-    if (z > MOSQ[1] + 300 && abs(x - MOSQ[0]) < 700) t = min(t, 2);
+    let t = CITY_LOW[(rnd() * CITY_LOW.length) | 0];
+    if (dm < 700 && rnd() < .6) t = rnd() < .5 ? 6 : rnd() < .88 ? 7 : 8;
+    else if (dm < 1150 && rnd() < .18) t = 6;
+    if (z > MOSQ[1] + 300 && abs(x - MOSQ[0]) < 700 && t >= 6 && t <= 8) t = CITY_LOW[(rnd() * 4) | 0];
     const sc = rr(.94, 1.04), yaw = (rnd() < .5 ? 0 : PI / 2) + rr(-.02, .02);
     solid(26 + t, x, fh(x, z) - .5, z, sc, yawQ(yaw), 17, rnd(), 0, CITY[t][1] * sc);
   }
@@ -467,9 +472,9 @@ function makeWorld(D, T, NA, FAR, flyPts) {
     solid(23 + k, x, y - .1, z, s, q, 16, rnd(), 0, 0);
     for (const tp of acacias[k].tops) {
       const w = qrot3(q, tp.map((v) => v * s));
-      for (let j = 0; j < 240; j++) {
-        const a = rnd() * TAU, r = sqrt(rnd()) * 2.3 * s;
-        leaf(big, x + w[0] + cos(a) * r, y + w[1] + rr(-.25, .3) - r * r * .03, z + w[2] + sin(a) * r, rr(.4, .7), rnd() * TAU, rr(1.35, 1.75), .16, 4, 4, rnd(), rnd(), .35);
+      for (let j = 0; j < 1000; j++) {
+        const a = rnd() * TAU, r = sqrt(rnd()) * 2.4 * s;
+        leaf(big, x + w[0] + cos(a) * r, y + w[1] + rr(-.3, .3) - r * r * .035, z + w[2] + sin(a) * r, rr(.24, .4), rnd() * TAU, rr(1.2, 1.9), .075, 4, 4, rnd(), rnd(), .3);
       }
     }
   }
@@ -477,7 +482,7 @@ function makeWorld(D, T, NA, FAR, flyPts) {
   for (let i = 0; i < 11000; i++) {
     const near3 = i < 260, c3 = rel(2, rr(5, 26), rr(-10, 10));
     const z = near3 ? c3[1] : rr(-250, 250), x = near3 ? c3[0] : wadiX(z) + rr(-22, 22), y = gy(x, z);
-    if (nearFly(x, z, 1.5) || nearPose(x, z, 1.5)) continue;
+    if (nearFly(x, z, 1.5) || nearPose(x, z, 1.5) || fbm(x * .06, 5, z * .06, 2) < .55) continue;
     const sc = .05 + .28 * pow(rnd(), 2.6), q = qRand();
     if (!(nth++ % THIN)) solid(7, x, y - sc * .15, z, sc, q, 4, rnd(), 40, 0);
   }
@@ -525,11 +530,11 @@ function makeWorld(D, T, NA, FAR, flyPts) {
     if (max(abs(x), abs(z)) > 248 || nearFly(x, z, 2.5) || nearPose(x, z, 2.5)) continue;
     const lava = nearA(x, z, 1), gr = nearA(x, z, 2);
     const q = qRand();
-    if (lava > .3 && rnd() < lava * .9) {
+    if (lava > .3 && rnd() < sstep(.5, .95, lava) * .9) {
       const sc = (.25 + 1.6 * pow(rnd(), 2.5)) * (ny > .8 ? .7 : 1), bigR = sc > 1;
       solid(bigR ? 5 : 4, x - T.wn[k] * sc * .3, y - ny * sc * .3, z - T.wn[k + 2] * sc * .3, sc, q, 2, rnd(), bigR ? 0 : 110, 0);
     } else if (gr > .3 && rnd() < gr * .25) {
-      const sc = .4 + 2.2 * pow(rnd(), 2);
+      const sc = .3 + 1.3 * pow(rnd(), 2);
       solid(6, x - T.wn[k] * sc * .35, y - ny * sc * .35, z - T.wn[k + 2] * sc * .35, sc, q, 3, rnd(), 0, 0);
     } else if (rnd() < .05 && !inPlot(x, z, -1) && !inQuba(x, z, 3)) {
       const sc = .05 + .25 * pow(rnd(), 2);
@@ -601,7 +606,7 @@ function makeWorld(D, T, NA, FAR, flyPts) {
   for (let k = 0; k < FN * FN; k++) { fmap[k * 4] = FAR.A[k * 4 + 1] * 255; fmap[k * 4 + 1] = FAR.A[k * 4 + 2] * 255; fmap[k * 4 + 2] = FAR.B[k * 4] * 255; fmap[k * 4 + 3] = FAR.B[k * 4 + 1] * 255; }
 
   const sol = { data: [], ranges: [] }; let si = 0;
-  for (let m = 0; m < 33; m++) { const a = solids[m] || []; sol.ranges.push([si, a.length / 12]); si += a.length / 12; for (let i = 0; i < a.length; i++) sol.data.push(a[i]); }
+  for (let m = 0; m < NSOLID; m++) { const a = solids[m] || []; sol.ranges.push([si, a.length / 12]); si += a.length / 12; for (let i = 0; i < a.length; i++) sol.data.push(a[i]); }
   return { gy, fh, trunks, acacias, worldMeshes, cells: cells.map(packC), big: pack(big), small: pack(small), far: packFlat(farL),
     solids: { data: new Float32Array(sol.data), ranges: sol.ranges }, birds: new Float32Array(birds), motes, volD, nm, fmap };
 }

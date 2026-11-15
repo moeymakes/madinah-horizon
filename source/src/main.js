@@ -234,8 +234,8 @@ const far = buildFar(fh);
 D = Wd.gy = T.smp = null;
 // mesh ids (world.js solid() calls use the same numbers)
 const W = Wd.worldMeshes;
-const meshes = [...Wd.trunks, meshDates(), meshRock(1, 2, 0), meshRock(7, 3, 0), meshRock(13, 2, 1), meshRock(22, 1, 1),
-  meshFarTrunk(), meshNabawi(), meshNabawiDomes(), meshGreenDome(), meshMinaret(MINARET_N, 7, 20), meshUmbrella(), meshQubaBody(), meshQubaDomes(),
+const meshes = [...Wd.trunks, meshDates(), meshRock(1, 2, 0), meshRock(7, 3, 0), meshRock(13, 2, 0), meshRock(22, 1, 1),
+  meshFarTrunk(), meshNabawi(), meshNabawiDomes(), meshGreenDome(), meshMinaret(MINARET_N, 9, 20, 1.3), meshUmbrella(), meshQubaBody(), meshQubaDomes(),
   meshMinaret(MINARET_Q, 4.4, 12), meshFinial(1), W.walls, W.chan, W.water, W.well, W.wood, ...Wd.acacias,
   ...CITY.map((d) => meshCityBox(...d)), meshBird()].map((m) => m.build());
 let nV = 0, nI = 0;
@@ -252,7 +252,7 @@ const ibSolids = buf(solidData, BU.VERTEX);
 const ibCell = Wd.cells.map((c) => buf(c.data, BU.VERTEX));
 const ibBig = buf(new Uint8Array(Wd.big.buf), BU.VERTEX), ibSmall = buf(new Uint8Array(Wd.small.buf), BU.VERTEX), ibFarL = buf(new Uint8Array(Wd.far.buf), BU.VERTEX), nFarL = Wd.far.n;
 const ibBirds = buf(Wd.birds, BU.VERTEX), nBirds = Wd.birds.length / 8, ibMotes = buf(Wd.motes, BU.VERTEX), nMotes = Wd.motes.length / 4;
-const BIRD = meshes[33];
+const BIRD = meshes[NSOLID];
 Q.writeTexture({ texture: tVol }, Wd.volD, { bytesPerRow: NX, rowsPerImage: NY / 2 }, [NX / 2, NY / 2, NZ / 2]);
 Q.writeTexture({ texture: tNear }, Wd.nm, { bytesPerRow: NX * 4 }, [NX, NZ]);
 Q.writeTexture({ texture: tFar }, Wd.fmap, { bytesPerRow: FN * 4 }, [FN, FN]);
@@ -405,7 +405,7 @@ function render() {
   r.setPipeline(pSolid);
   r.setVertexBuffer(0, vbFar); r.setIndexBuffer(ibFar, 'uint32'); r.drawIndexed(nFarI, 1, 0, 0, nSolid + 1);
   r.setVertexBuffer(0, vbMesh); r.setIndexBuffer(ibMesh, 'uint32');
-  for (let i = 8; i < 33; i++) { const g = Wd.solids.ranges[i]; if (g[1]) r.drawIndexed(meshes[i].ib.length, g[1], meshes[i].i0, meshes[i].v0, g[0]); }
+  for (let i = 8; i < NSOLID; i++) { const g = Wd.solids.ranges[i]; if (g[1]) r.drawIndexed(meshes[i].ib.length, g[1], meshes[i].i0, meshes[i].v0, g[0]); }
   for (let i = 0; i < 8; i++) { const c = Wd.cells[i]; if (!c.n) continue; r.setVertexBuffer(1, ibCell[i]); drawCells(r, c.start, c.lo, c.hi, 3, meshes[i], 0, 0, CELLD[i]); }
   r.setPipeline(pBird); r.setVertexBuffer(1, ibBirds); r.drawIndexed(BIRD.ib.length, nBirds, BIRD.i0, BIRD.v0, 0);
   // fronds: fine near, coarser further, and the far groves

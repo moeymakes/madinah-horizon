@@ -4,8 +4,11 @@
 // Noise, detail texture, blit/bloom and the composite chain follow Abyssal Garden (MIT); the air, sky, terrain
 // materials, palms, buildings and birds are this world's own.
 
-const W_NOISE = /*wgsl*/`
+// smoothstep lives in its own string so modules that already have it (via S_G) can take the noise without it
+const W_SS = /*wgsl*/`
 fn ss(a: f32, b: f32, x: f32) -> f32 { let t = clamp((x - a) / (b - a), 0., 1.); return t * t * (3. - 2. * t); }
+`;
+const W_NOISE = /*wgsl*/`
 fn h31(p: vec3f) -> f32 { var q = fract(p * vec3f(.1031, .1030, .0973)); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
 fn h33(p: vec3f) -> vec3f { var q = fract(p * vec3f(.1031, .1030, .0973)); q += dot(q, q.yxz + 33.33); return fract((q.xxy + q.yxx) * q.zyx); }
 fn vn(p: vec3f) -> f32 {
@@ -30,7 +33,7 @@ fn wor(p: vec3f) -> f32 {
 // ---------------------------------------------------------------- near-field rock density (compute)
 // M holds the CPU ground model per column: x height, y basalt mask, z granite mask (masks fade to 0 at the
 // box edge, so the near surface meets the far heightmap there).
-const W_DENS = W_NOISE + /*wgsl*/`
+const W_DENS = W_SS + W_NOISE + /*wgsl*/`
 struct U { n: vec4u, o: vec4f };
 @group(0) @binding(0) var<uniform> u: U;
 @group(0) @binding(1) var<storage, read_write> D: array<f32>;
@@ -71,7 +74,7 @@ fn dens(p: vec3f, gx: f32, gz: f32) -> f32 {
 // ---------------------------------------------------------------- ground model (compute, load time)
 // One function for the whole 24 km world, sampled twice: 1 m over the near field and ~23 m over everything.
 // A = height, basalt, granite, wadi sand · B = city ground (1 = the Haram plaza), palm groves
-const W_GROUND = W_NOISE + /*wgsl*/`
+const W_GROUND = W_SS + W_NOISE + /*wgsl*/`
 struct U { n: vec4u, o: vec4f };
 @group(0) @binding(0) var<uniform> u: U;
 @group(0) @binding(1) var<storage, read_write> A: array<vec4f>;
@@ -107,6 +110,7 @@ fn massif(p: vec2f, c: vec2f, ang: f32, L: f32, W: f32) -> f32 {
   let lavS = ss(0., 600., x + z * .6 - 1900.);
   var lava = max(max(lavN, lavF), lavS);
   h += 6.5 * lava * (.8 + .4 * fbm(vec3f(x * .01, 6., z * .01), 2)) + 9. * max(lavF, lavS) * (fbm(vec3f(x * .007, 14., z * .007), 3) - .5);
+  h += 7. * ss(.05, .35, max(lavF, lavS)) * ss(.95, .6, max(lavF, lavS)) * (.5 + fbm(vec3f(x * .02, 15., z * .02), 2)) * ss(300., 500., max(abs(x), abs(z)));
   for (var k = 0; k < 8; k++) {
     let c = CONES[k]; let d = distance(p2, c.xy);
     if (d < c.w) {
@@ -122,10 +126,10 @@ fn massif(p: vec2f, c: vec2f, ang: f32, L: f32, W: f32) -> f32 {
   let r = length(p2);
   let rim = ss(6500., 11000., r) * (.45 + .75 * fbm(vec3f(x * .0005, 9., z * .0005), 3));
   h += 300. * rim; gran = max(gran, ss(.1, .3, rim) * .8);
-  let dm = length((p2 - vec2f(0., -1500.)) * vec2f(1., 1.15));
+  let dm = length((p2 - vec2f(0., -1150.)) * vec2f(1., 1.15));
   h = mix(h, -1.5, ss(950., 380., dm));
   h = mix(h, .4, ss(56., 40., distance(p2, vec2f(-95., -150.))));
-  let plaza = step(abs(x), 262.) * step(abs(z + 1520.), 345.);
+  let plaza = step(abs(x), 330.) * step(abs(z + 1175.), 432.);
   let outNear = ss(300., 340., max(abs(x), abs(z)));
   var city = ss(3000., 1300., dm) * (1. - lava) * (1. - gran) * (1. - wadi * .8) * outNear * ss(-150., -420., z);
   city = mix(city * .5, 1., plaza);
@@ -143,7 +147,7 @@ const W_FS = /*wgsl*/`
 `;
 
 // surface detail texture (tileable): rg = slope, b = height, a = mottling
-const W_DETAIL = W_NOISE + W_FS + /*wgsl*/`
+const W_DETAIL = W_SS + W_NOISE + W_FS + /*wgsl*/`
 fn hp(p: vec2f, per: f32) -> f32 { return h31(vec3f(p - per * floor(p / per), per)); }
 fn tn(p: vec2f, per: f32) -> f32 {
   let i = floor(p); let f = fract(p); let u = f * f * (3. - 2. * f);
@@ -212,8 +216,8 @@ struct G { vp: mat4x4f, sm: mat4x4f, cam: vec4f, right: vec4f, up: vec4f, fwd: v
 const SUNC = vec3f(2.9, 2.1, 1.35);
 const ZEN = vec3f(.10, .24, .58);
 const HOR = vec3f(.98, .66, .42);
-const BETA = vec3f(1.1e-4, 1.4e-4, 1.9e-4);
-const HSCALE = 420.;
+const BETA = vec3f(.85e-4, 1.1e-4, 1.5e-4);
+const HSCALE = 300.;
 const TAU = 6.2831853;
 const NEARH = 256.;
 const LOW = ${LV > 1};
@@ -351,10 +355,11 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     let bas = mix(vec3f(.032, .031, .03), vec3f(.065, .052, .045), ss(.5, .78, A.c)) * (.65 + .7 * C.h);
     alb = mix(alb, mix(bas, vec3f(.40, .28, .17) * (.8 + .3 * B.h), flt * ss(.6, .9, B.c + .2 * A.h) * .45), lava);
     var gra = mix(vec3f(.40, .18, .11), vec3f(.56, .30, .19), A.c) * (.68 + .55 * B.h);
-    gra = mix(gra, vec3f(.13, .10, .10), ss(.55, .7, fract(i.wp.y * select(.11, .013, far) + A.h * 1.5)) * .45);
+    gra = mix(gra, vec3f(.16, .11, .09), ss(.5, .75, fract(i.wp.y * .11 + A.h * 1.5)) * select(.45, 0., far));
+    gra = mix(gra, gra * vec3f(.55, .5, .5), ss(.55, .8, B.c) * f32(far) * .5);
     alb = mix(alb, gra, gran * (1. - .55 * flt));
     alb = mix(alb, mix(vec3f(.52, .45, .37) * (.8 + .3 * B.h), vec3f(.84, .82, .77), ss(.9, .97, city)), ss(.05, .2, city));
-    alb = mix(alb, mix(mix(vec3f(.05, .045, .04), vec3f(.11, .085, .065), A.h) * (.7 + .6 * B.c), vec3f(.42, .30, .19), ss(.62, .82, B.c) * .35), lava * (1. - nk) * .7);
+    alb = mix(alb, mix(mix(vec3f(.09, .075, .065), vec3f(.18, .135, .10), A.h) * (.7 + .6 * B.c), vec3f(.42, .30, .19), ss(.6, .8, B.c) * .4), lava * (1. - nk) * .8);
     alb *= mix(1., .6 + .8 * F.h, fk);
     bump = select(1.3, 1., far); gloss = mix(.06, .22, lava * (1. - flt));
   } else if (mat == 2) {
@@ -370,13 +375,13 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     let mortar = (1. - ss(.0, .06, by) * ss(1., .94, by)) * .5 + (1. - ss(.0, .05, bx) * ss(1., .95, bx)) * .5;
     let render = ss(.45, .65, B.c + .25 * A.h);
     alb = mix(vec3f(.52, .35, .21), vec3f(.44, .29, .17), hs(row * 7.1 + floor(fu / .7 + row * .5)) * .6) * (.78 + .4 * C.h);
-    alb = mix(alb * (1. - .35 * mortar * (1. - render)), vec3f(.60, .44, .29) * (.8 + .3 * B.h), render * .55);
-    alb *= mix(.7, 1., ss(0., .6, fv)); bump = .45;
+    alb = mix(alb * (1. - .55 * mortar * (1. - render)), vec3f(.58, .43, .29) * (.8 + .3 * B.h), render * .4);
+    alb *= mix(.7, 1., ss(0., .6, fv)); bump = .7;
   } else if (mat == 6 || mat == 7 || mat == 17) {
     // stucco and stone: white (6), cream (7), mixed city buildings (17) with windows by floor
     let hh = hs(sd * 3.7);
     let ct = select(select(select(select(vec3f(.80, .70, .55), vec3f(.70, .58, .44), hh > .3), vec3f(.82, .80, .75), hh > .55), vec3f(.66, .48, .32), hh > .75), vec3f(.55, .53, .50), hh > .9);
-    let tone = select(select(vec3f(.80, .78, .74), vec3f(.84, .74, .60), mat == 7), ct, mat == 17);
+    let tone = select(select(vec3f(.82, .80, .76), vec3f(.88, .82, .72), mat == 7), ct, mat == 17);
     alb = tone * (.86 + .2 * B.h) * (.94 + .1 * C.c);
     if (mat == 17) {
       let wx = fract(fu / 3.4); let wy = fract(fv / 3.3); let flr = floor(fv / 3.3); let bay = floor(fu / 3.4);
@@ -389,17 +394,20 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     } else {
       let bw = select(4.2, 6.5, mat == 7);
       let a1 = arcade(fu, fv, bw, select(3.2, 8.5, mat == 7), select(.6, 1., mat == 7)) * wall;
+      let a1i = arcade(fu, fv + .25, bw * .86, select(3.2, 8.5, mat == 7) - .5, select(.6, 1., mat == 7)) * wall;
       let a2 = arcade(fu + bw * .5, fv, bw, select(1.2, 2.4, mat == 7), select(5.8, 12.6, mat == 7)) * wall * step(fv, select(7.6, 16., mat == 7));
       let ins = max(a1, a2 * .8);
-      alb = mix(alb, vec3f(.20, .16, .12), a1 * step(.5, i.m.w));
-      alb = mix(alb, vec3f(.07, .07, .08), a2 * .85 * step(.5, i.m.w));
-      emi = vec3f(1., .7, .4) * (.05 * a1 + .18 * a2) * step(.5, i.m.w);
+      let inner = mix(vec3f(.30, .24, .18), vec3f(.08, .065, .05), ss(.6, select(5., 10., mat == 7), fv));
+      alb = mix(alb, alb * vec3f(1.08, 1.02, .94), (a1 - a1i) * step(.5, i.m.w));
+      alb = mix(alb, inner, a1i * step(.5, i.m.w));
+      alb = mix(alb, vec3f(.05, .05, .06), a2 * .9 * step(.5, i.m.w));
+      emi = vec3f(1., .7, .4) * (.04 * a1i + .07 * a2) * step(.5, i.m.w);
       gloss = mix(.08, .5, a2);
       alb = mix(alb, alb * vec3f(.78, .72, .66), ss(.6, .9, on.y));
       let band = ss(.92, .97, fract(fv / select(7.9, 16.6, mat == 7))) * wall;
       alb = mix(alb, alb * vec3f(.92, .84, .7), band * .6);
     }
-    bump = .12;
+    bump = .04;
   } else if (mat == 8) {
     let rib = ss(.4, .5, abs(fract(atan2(i.op.z, i.op.x) / TAU * 24.) - .5)) * .3;
     alb = vec3f(.06, .40, .16) * (1. - rib) * (.92 + .16 * B.h); gloss = .6; bump = .05;
@@ -419,7 +427,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
   } else if (mat == 13) {
     alb = mix(vec3f(.52, .20, .035), vec3f(.32, .10, .025), hs(sd * 17.)) * (.8 + .3 * C.h); gloss = .4; bump = .6;
   } else if (mat == 14) {
-    alb = vec3f(.66, .60, .52) * (.8 + .3 * B.h); bump = .3;
+    alb = vec3f(.46, .37, .27) * (.8 + .35 * B.h); bump = .5; gloss = .02;
   } else if (mat == 16) {
     alb = vec3f(.24, .15, .08) * (.7 + .5 * C.c); bump = .7;
   }
@@ -429,7 +437,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     let N = normalize(vec3f(rpW.x * .06, 1., rpW.y * .06));
     let fr = .02 + .98 * pow(1. - sat(dot(N, V)), 5.);
     let R = reflect(-V, N);
-    var c = mix(vec3f(.03, .045, .03), skyCol(R, g.sun.xyz) * .9, fr) + SUNC * shadow1(i.wp) * pow(sat(dot(R, g.sun.xyz)), 400.) * 6.;
+    var c = mix(vec3f(.012, .02, .012), skyCol(R, g.sun.xyz) * .55, fr * .85) + SUNC * shadow1(i.wp) * pow(sat(dot(R, g.sun.xyz)), 600.) * 4.;
     return fin(aerial(c, i.wp));
   }
   let N = normalize(qrot(i.q, normalize(on + (A.n * .8 + B.n * .6 + C.n * .4 * ss(70., 10., dist) + F.n * .5 * fk) * bump)));
@@ -438,6 +446,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
   var ao = (sat((vv.x - .5) * 6.) * .5 + sat((v2.x - .5) * 2.5) * .5) * vao * mix(1., i.ao, f32(mat == 1));
   ao = mix(ao, vao * select(1., i.ao, far), 1. - nk);
   ao = select(ao, .5 + .5 * ao, mat >= 5 && mat != 12 && mat != 13);
+  ao = select(ao, .35 + .65 * ao, mat == 12 || mat == 13);
   let sh = select(shadow9(i.wp + n0 * (.3 + dist * .002)), sat(i.ao * 1.6 - .3), far);
   let E = SUNC * sh;
   let ndl = sat(dot(N, L));
@@ -474,8 +483,8 @@ fn grassSway(p: vec2f, h: f32, t: f32) -> vec2f {
   var col = vec3f(0.); var pr = vec4f(0.); var shp = 0.; var fold = 0.;
   let palm = ty == 0 || ty == 1 || ty == 5;
   switch ty {
-    case 0 { col = mix(vec3f(.07, .11, .03), vec3f(.14, .15, .045), s1); pr = vec4f(1., .55, 0., 0.); fold = .5; }
-    case 1 { col = mix(vec3f(.30, .20, .10), vec3f(.40, .30, .16), s1); pr = vec4f(1., .35, 0., 0.); fold = .3; }
+    case 0 { col = mix(vec3f(.09, .14, .035), vec3f(.18, .20, .055), s1); pr = vec4f(1., .55, 0., 0.); fold = .5; }
+    case 1 { col = mix(vec3f(.20, .14, .075), vec3f(.28, .20, .10), s1); pr = vec4f(1., .3, 0., 0.); fold = .3; }
     case 2 { col = mix(vec3f(.16, .19, .05), vec3f(.30, .28, .10), s1); pr = vec4f(0., .7, 0., 0.); }
     case 3 { col = mix(vec3f(.20, .21, .14), vec3f(.28, .23, .13), s1); pr = vec4f(0., .4, 0., 0.); }
     case 4 { col = mix(vec3f(.12, .16, .06), vec3f(.18, .20, .08), s1); pr = vec4f(0., .6, 0., 0.); }
@@ -508,8 +517,9 @@ fn leafCov(i: LO) -> f32 {
   var cov = 1. - ss(lw - fw, lw + fw, f);
   cov = max(cov, 1. - ss(.04, .07, abs(i.uv.x)));
   cov *= 1. - ss(.82, 1., abs(i.uv.x) + .1 * f);
-  cov = mix(cov, .9, ss(.16, .45, fw));
-  return select(1., cov, i.pr.x > .5);
+  cov = mix(cov, 1., ss(.16, .45, fw));
+  let sharp = sat((cov - .5) / max(fwidth(cov), 1e-4) + .5);
+  return select(1., sharp, i.pr.x > .5);
 }
 @fragment fn fsSh(i: LO) { if (leafCov(i) < .5) { discard; } }
 @fragment fn fs(i: LO, @builtin(front_facing) ff: bool) -> @location(0) vec4f {
@@ -570,7 +580,7 @@ struct VO { @builtin(position) cp: vec4f, @location(0) wp: vec3f, @location(1) n
 `;
 
 // ---------------------------------------------------------------- sky dome behind everything
-const W_SKY = S_B + W_NOISE.replace(/fn ss\(.*\n/, '') + /*wgsl*/`
+const W_SKY = S_B + W_NOISE + /*wgsl*/`
 struct VO { @builtin(position) cp: vec4f, @location(0) d: vec3f };
 @vertex fn vs(@builtin(vertex_index) i: u32) -> VO {
   var o: VO;
@@ -587,7 +597,7 @@ struct VO { @builtin(position) cp: vec4f, @location(0) d: vec3f };
     let q = rd.xz / rd.y * 6000.;
     let r = vec2f(q.x * .96 + q.y * .28, q.y * .96 - q.x * .28) * vec2f(.00011, .00042) + vec2f(g.cam.w * .002, 0.);
     let n = fbm(vec3f(r, 1.3), 5) + .35 * (fbm(vec3f(r * 3.1, 4.1), 3) - .5);
-    let cov = ss(.58, .84, n) * ss(.004, .09, rd.y) * (1. - ss(.35, .9, rd.y));
+    let cov = ss(.58, .84, n) * ss(.03, .2, rd.y) * (1. - ss(.35, .9, rd.y));
     let lit = mix(vec3f(1.2, .74, .52), vec3f(2.4, 1.3, .62), pow(max(mu, 0.), 3.)) * (.75 + .5 * fbm(vec3f(r * 7., 2.), 2));
     c = mix(c, lit, cov * .5);
   }
@@ -606,9 +616,9 @@ struct VO { @builtin(position) cp: vec4f, @location(0) uv: vec2f, @location(1) @
   p = g.cam.xyz + (fract((p - g.cam.xyz) / B + .5) - .5) * B;
   let d = length(p - g.cam.xyz);
   let sz = .006 + .02 * a.w * a.w * a.w;
-  let w = p + (g.right.xyz * q.x + g.up.xyz * q.y) * max(sz, d * .0009);
+  let w = p + (g.right.xyz * q.x + g.up.xyz * q.y) * max(sz, d * .0016);
   o.cp = g.vp * vec4f(w, 1.); o.uv = q;
-  let fade = ss(B * .5, B * .3, d) * ss(.4, 2., d) * min(1., sz / (d * .0009)) * ss(-2., 1., -abs(p.y - 4.) + 4.);
+  let fade = ss(B * .5, B * .3, d) * ss(.4, 2., d) * min(1., sz / (d * .0016)) * ss(-2., 1., -abs(p.y - 4.) + 4.) * .5;
   let mu = dot(normalize(p - g.cam.xyz), g.sun.xyz);
   let ph = .15 + 2.2 * pow(max(mu, 0.), 6.);
   o.pr = vec4f(fade * ph * shadow1(p), a.w, 0., 0.);
@@ -650,7 +660,7 @@ const W_RAYS = S_G + W_FS + /*wgsl*/`
   let mu = dot(rd, sx);
   let gg = .72;
   let ph = (1. - gg * gg) / pow(1. + gg * gg - 2. * gg * mu, 1.5) * .08 + .04;
-  return vec4f(min(SUNC * vec3f(1., .86, .66) * acc * dt * .0045 * ph * g.mis.y, vec3f(20.)), zl);
+  return vec4f(min(SUNC * vec3f(1., .86, .66) * acc * dt * .011 * ph * g.mis.y, vec3f(20.)), zl);
 }
 `;
 // depth-aware 3x3 blur of the half-res shafts (hides the sampling dither)
