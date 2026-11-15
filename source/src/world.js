@@ -9,12 +9,12 @@ const SUN = (() => { const v = [-.93, .158, .37]; const l = hypot(...v); return 
 const MOSQ = [0, -1150], QUBA = [-95, -150], MS = 1.25;
 // city block sizes (w, h, d), shared by the placement and the meshes: footprints nearly fill 30 m cells
 // w, h, d, setback storey; indices 6-8 are the hotels near the Haram
-const CITY = [[27, 6.6, 28, 0], [28, 9.9, 26, 0], [24, 9.9, 27, 1], [28, 13.2, 28, 0], [26, 6.6, 27, 1], [20, 9.9, 28, 0], [28, 30, 28, 1], [29, 46, 29, 0], [26, 62, 26, 1], [22, 6.6, 24, 1]];
+const CITY = [[27, 6.6, 28, 0], [28, 9.9, 26, 0], [24, 9.9, 27, 1], [28, 13.2, 28, 0], [26, 6.6, 27, 1], [20, 9.9, 28, 0], [28, 19.8, 28, 1], [29, 26.4, 29, 0], [26, 33, 26, 1], [22, 6.6, 24, 1]];
 const CITY_LOW = [0, 1, 2, 3, 4, 5, 9], NSOLID = 26 + CITY.length;
 // viewpoints: x, eye height above the ground (absolute y when flying), z, look-at x, y, z, flying
 const POSES = [
   [-12.4, 1.7, 128, -14, 6, -400, 0],
-  [150, 1.7, -30, -60, 40, -700, 0],
+  [150, 1.7, -30, -40, 80, -900, 0],
   [-160, 1.7, 130, -110, 70, -400, 0],
   [95, 1.7, 165, 0, 40, -1150, 0],
   [-36, 1.7, -92, -98, 27, -152, 0],
@@ -26,14 +26,14 @@ const FLY = new Float32Array([
   -12.4, 3.5, 60, -14, 6, -300,
   -22, 4, -40, -98, 14, -150,
   -58, 5, -104, -98, 16, -150,
-  -105, 6, -114, -150, 10, -100,
+  -105, 6, -114, -150, 12, -20,
   -140, 7, -84, -160, 6, 0,
   -162, 5, -30, -150, 4, 120,
   -158, 4.5, 60, -100, 6, 200,
   -140, 5, 140, -40, 6, 200,
   -80, 8, 200, 60, 12, 180,
-  15, 15, 222, 95, 24, 170,
-  68, 30, 195, 20, 15, -600,
+  15, 18, 222, 95, 24, 170,
+  62, 40, 196, 20, 15, -600,
   112, 32, 140, 140, 10, 0,
   150, 20, 60, 140, 8, -100,
   160, 18, -40, -60, 12, -700,
@@ -320,7 +320,7 @@ function makeWorld(D, T, NA, FAR, flyPts) {
       leaf(big, cx, cy + .25, cz, len, off + f * 2.39996 + rr(-.15, .15), tilt, .54 * len / 4, H, 0, rnd(), rnd(), clamp(mix(.25, .8, t) + rr(-.1, .1), 0, 1));
     }
     if (!young) for (let f = 4 + (rnd() * 5 | 0); f > 0; f--) leaf(big, cx, cy - .4, cz, rr(2.4, 3.3), rnd() * TAU, rr(2.45, 2.95), .45, H, 1, rnd(), rnd(), .25);
-    if (!young && H > 6.5) for (let k = 3 + (rnd() * 3 | 0); k > 0; k--) { const a = rnd() * TAU; solid(3, cx + cos(a) * .55, cy - .75 - rnd() * .3, cz + sin(a) * .55, rr(.26, .36), yawQ(rnd() * TAU), 13, rnd(), 80, H); }
+    if (!young && H > 6.5) for (let k = 3 + (rnd() * 3 | 0); k > 0; k--) { const a = rnd() * TAU; solid(3, cx + cos(a) * .55, cy - .75 - rnd() * .3, cz + sin(a) * .55, rr(.2, .27), yawQ(rnd() * TAU), 13, rnd(), 80, H); }
     // crowns shade the ground beneath them in the skylight bake
     const hx = round((cx - OX) / VS / 2), hz = round((cz - OZ) / VS / 2), hy = round((cy - OY) / VS / 2);
     for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) for (let dy = -1; dy <= 0; dy++) {
@@ -330,9 +330,9 @@ function makeWorld(D, T, NA, FAR, flyPts) {
   };
   rseed(1);
   for (const p of PLOTS) {
-    const sp = rr(7, 8.2), jx = rr(0, sp), jz = rr(0, sp), old = rr(.6, 1);
+    const sp = rr(6.5, 9), jx = rr(0, sp), jz = rr(0, sp), old = rr(.6, 1);
     for (let z = p[1] + 3 + jz % 3; z < p[3] - 2; z += sp) for (let x = p[0] + 3 + jx % 3; x < p[2] - 2; x += sp) {
-      if (rnd() < .17) continue;
+      if (rnd() < .22) continue;
       const px = x + rr(-2.2, 2.2), pz = z + rr(-2.2, 2.2);
       if (nearFly(px, pz, 4.5) || nearPose(px, pz, 3.5) || hypot(px - WELL[0], pz - WELL[1]) < 4) continue;
       const young = rnd() < .18;
@@ -529,7 +529,7 @@ function makeWorld(D, T, NA, FAR, flyPts) {
     if (max(abs(x), abs(z)) > 248 || nearFly(x, z, 2.5) || nearPose(x, z, 2.5)) continue;
     const lava = nearA(x, z, 1), gr = nearA(x, z, 2);
     const q = qRand();
-    if (lava > .3 && rnd() < sstep(.5, .95, lava) * .9) {
+    if (lava > .1 && rnd() < sstep(.5, .95, lava) * .9 + (lava < .5 ? .35 : 0)) {
       const sc = (.2 + 1.4 * pow(rnd(), 3) + (rnd() < .04 ? rr(1.2, 2.6) : 0)) * (ny > .8 ? .75 : 1), bigR = sc > 1;
       solid(bigR ? 5 : 4, x - T.wn[k] * sc * .3, y - ny * sc * .3, z - T.wn[k + 2] * sc * .3, sc, q, 2, rnd(), bigR ? 0 : 110, 0);
     } else if (gr > .3 && rnd() < gr * .25) {

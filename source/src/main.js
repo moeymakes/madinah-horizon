@@ -92,8 +92,8 @@ const mSolid = mod(W_SOLID), mLeaf = mod(W_LEAF), mAnim = mod(W_ANIM), mSky = mo
 const pTerrain = scenePipe(mSolid, 'vs', 'fs', [vbSolid, ibSolid], { cull: 'back' });
 const pSolid = scenePipe(mSolid, 'vs', 'fs', [vbSolid, ibSolid]);
 const pLeaf9 = scenePipe(mLeaf, 'vs', 'fs', [ibLeaf], { strip: true, a2c: true, constants: { ROWS: 11 } });
-const pLeaf5 = scenePipe(mLeaf, 'vs', 'fs', [ibLeaf], { strip: true, a2c: true, constants: { ROWS: 6 } });
-const pLeaf3 = scenePipe(mLeaf, 'vs', 'fs', [ibLeaf], { strip: true, a2c: true, constants: { ROWS: 3, FAR: 1500 } });
+const pLeaf5 = scenePipe(mLeaf, 'vs', 'fs', [ibLeaf], { strip: true, a2c: true, constants: { ROWS: 7 } });
+const pLeaf3 = scenePipe(mLeaf, 'vs', 'fs', [ibLeaf], { strip: true, a2c: true, constants: { ROWS: 5, FAR: 1500 } });
 const pGrass = scenePipe(mLeaf, 'vs', 'fs', [ibLeaf], { strip: true, constants: { ROWS: 4, FAR: 70 } });
 const pFarLeaf = scenePipe(mLeaf, 'vs', 'fs', [ibLeaf], { strip: true, constants: { ROWS: 3, FAR: 6000 } });
 const pBird = scenePipe(mAnim, 'vs', 'fs', [vbSolid, ibAnim]);
@@ -410,8 +410,8 @@ function render() {
   r.setPipeline(pBird); r.setVertexBuffer(1, ibBirds); r.drawIndexed(BIRD.ib.length, nBirds, BIRD.i0, BIRD.v0, 0);
   // fronds: fine near, coarser further, and the far groves
   r.setPipeline(pLeaf9); r.setVertexBuffer(0, ibBig); drawCells(r, Wd.big.start, Wd.big.lo, Wd.big.hi, 5, false, 22, 0, 32);
-  r.setPipeline(pLeaf5); drawCells(r, Wd.big.start, Wd.big.lo, Wd.big.hi, 5, false, 12, 32, 100);
-  r.setPipeline(pLeaf3); drawCells(r, Wd.big.start, Wd.big.lo, Wd.big.hi, 5, false, 6, 100, 600);
+  r.setPipeline(pLeaf5); drawCells(r, Wd.big.start, Wd.big.lo, Wd.big.hi, 5, false, 14, 32, 100);
+  r.setPipeline(pLeaf3); drawCells(r, Wd.big.start, Wd.big.lo, Wd.big.hi, 5, false, 10, 100, 600);
   r.setPipeline(pGrass); r.setVertexBuffer(0, ibSmall); drawCells(r, Wd.small.start, Wd.small.lo, Wd.small.hi, 1.5, false, 8, 0, 70);
   r.setPipeline(pFarLeaf); r.setVertexBuffer(0, ibFarL); r.draw(6, nFarL);
   r.setPipeline(pSky); r.draw(4);

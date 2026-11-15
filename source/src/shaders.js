@@ -246,7 +246,7 @@ fn aerialAt(c: vec3f, cam: vec3f, wp: vec3f, sun: vec3f) -> vec3f {
   let od = select((1. - exp(-k * d)) / k, d, abs(k) < 1e-7) * exp(-max(cam.y, -30.) / HSCALE);
   let k2 = rd.y / 70.;
   let od2 = select((1. - exp(-k2 * d)) / k2, d, abs(k2) < 1e-7) * exp(-max(cam.y, -30.) / 70.);
-  let T = exp(-BETA * od - vec3f(2.6e-4, 2.9e-4, 3.2e-4) * od2);
+  let T = exp(-BETA * od - vec3f(1.5e-4, 1.6e-4, 1.75e-4) * od2);
   let ins = skyCol(normalize(vec3f(rd.x, max(rd.y, 0.) * .3 + .012, rd.z)), sun);
   return c * T + ins * (1. - T);
 }
@@ -340,6 +340,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
   let ts = select(select(1., .035, far), .5, mat >= 5 && mat != 12);
   let A = tri(i.op, on, .07 * ts); let B = tri(i.op, on, .31 * ts); let C = tri(i.op, on, 1.3 * ts); let F = tri(i.op, on, 5.1 * ts);
   let fk = ss(14., 2., dist) * f32(mat <= 4);
+  let Lg = textureSample(tD, sR, i.wp.xz * .0045 + .31);
   let nm = textureSample(tN, sC, i.wp.xz / 512. + .5);
   let fm = textureSample(tF, sC, i.wp.xz / 24000. + .5);
   let rpW = textureSample(tD, sR, i.wp.xz * .7 + vec2f(g.cam.w * .03, 0.)).rg * 2. - 1.;
@@ -352,14 +353,15 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
   let wfade = 1. - ss(.25, .6, fwidth(fu / 3.4) + fwidth(fv / 3.3));
   if (mat <= 1) {
     let lava = mix(fm.r, nm.g, nk); let gran = mix(fm.g, nm.b, nk); let wadi = nm.r * nk; let irr = nm.a * nk; let city = fm.b * (1. - nk);
-    alb = mix(vec3f(.52, .34, .19), vec3f(.68, .49, .30), sat(A.c * 1.4 - .2)) * (.72 + .5 * B.h) * (.82 + .36 * C.c);
+    alb = mix(vec3f(.52, .34, .19), vec3f(.64, .45, .27), sat(A.c * .9 + Lg.a * .9 - .55)) * (.7 + .45 * mix(B.h, Lg.b, .45)) * (.84 + .32 * C.c);
+    alb *= mix(vec3f(1.), vec3f(1.06, .95, .82), ss(.4, .7, Lg.a));
     alb = mix(alb, vec3f(.36, .26, .18) * (.8 + .4 * C.h), ss(.55, .75, B.c) * .35);
     alb = mix(alb, vec3f(.76, .62, .45) * (.86 + .25 * B.h), wadi);
     alb = mix(alb, mix(vec3f(.21, .14, .085), vec3f(.12, .15, .055), ss(.35, .65, B.c)), irr * .85);
-    let bas = mix(vec3f(.05, .048, .046), vec3f(.10, .085, .072), ss(.5, .78, A.c)) * (.65 + .7 * C.h);
-    let lv = max(lava, ss(.04, .3, lava) * (1. - flt));
-    alb = mix(alb, mix(bas * (.75 + .5 * F.h), vec3f(.44, .32, .20) * (.8 + .3 * B.h), flt * ss(.62, .9, B.c + .2 * A.h) * .3), lv);
-    var gra = mix(vec3f(.40, .18, .11), vec3f(.56, .30, .19), A.c) * (.68 + .55 * B.h);
+    let bas = mix(vec3f(.035, .034, .034), vec3f(.075, .066, .06), ss(.45, .8, C.c)) * (.55 + .9 * F.h * C.h);
+    let lv = max(lava, ss(.04, .25, lava));
+    alb = mix(alb, mix(bas, vec3f(.44, .32, .20) * (.8 + .3 * B.h), flt * ss(.7, .92, Lg.a + .3 * B.c) * .45), lv);
+    var gra = mix(vec3f(.46, .19, .10), vec3f(.62, .31, .17), A.c) * (.68 + .55 * B.h);
     gra = mix(gra, vec3f(.16, .11, .09), ss(.5, .75, fract(i.wp.y * .11 + A.h * 1.5)) * select(.45, 0., far));
     gra = mix(gra, gra * vec3f(.55, .5, .5), ss(.55, .8, B.c) * f32(far) * .5);
     alb = mix(alb, gra, sat(gran * 1.4) * (1. - .1 * flt));
@@ -380,17 +382,18 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     let mortar = (1. - ss(.0, .06, by) * ss(1., .94, by)) * .5 + (1. - ss(.0, .05, bx) * ss(1., .95, bx)) * .5;
     let render = ss(.45, .65, B.c + .25 * A.h);
     alb = mix(vec3f(.52, .35, .21), vec3f(.44, .29, .17), hs(row * 7.1 + floor(fu / .7 + row * .5)) * .6) * (.78 + .4 * C.h);
-    alb = mix(alb * (1. - .6 * mortar * (1. - render)), vec3f(.56, .41, .28) * (.75 + .4 * B.h), render * .25);
+    alb = mix(alb * (1. - .75 * mortar * (1. - render)) * (.85 + .3 * hs(row * 3.3 + floor(fu / .7 + row * .5) * 1.7)), vec3f(.56, .41, .28) * (.75 + .4 * B.h), render * .12);
     alb *= mix(.7, 1., ss(0., .6, fv)); bump = .7;
   } else if (mat == 6 || mat == 7 || mat == 17) {
     // stucco and stone: white (6), cream (7), mixed city buildings (17) with windows by floor
     let hh = hs(sd * 3.7);
-    let ct = select(select(select(select(vec3f(.80, .70, .55), vec3f(.70, .58, .44), hh > .3), vec3f(.82, .80, .75), hh > .55), vec3f(.66, .48, .32), hh > .75), vec3f(.55, .53, .50), hh > .9);
+    let ct = select(select(select(select(vec3f(.72, .62, .48), vec3f(.62, .51, .39), hh > .3), vec3f(.74, .72, .67), hh > .55), vec3f(.60, .44, .30), hh > .75), vec3f(.50, .48, .45), hh > .9);
     let tone = select(select(vec3f(.82, .80, .76), vec3f(.88, .82, .72), mat == 7), ct, mat == 17);
     alb = tone * (.86 + .2 * B.h) * (.94 + .1 * C.c);
     if (mat == 17) {
-      let wx = fract(fu / 3.4); let wy = fract(fv / 3.3); let flr = floor(fv / 3.3); let bay = floor(fu / 3.4);
-      let win = step(.28, wx) * step(wx, .72) * step(.3, wy) * step(wy, .78) * step(1., flr) * wall * step(fv, i.m.w - 1.) * wfade;
+      let bw = mix(2.6, 4.6, hs(sd * 11.)); let ww = mix(.18, .34, hs(sd * 13.));
+      let wx = fract(fu / bw); let wy = fract(fv / 3.3); let flr = floor(fv / 3.3); let bay = floor(fu / bw);
+      let win = step(.5 - ww, wx) * step(wx, .5 + ww) * step(.3, wy) * step(wy, .74) * step(1., flr) * wall * step(fv, i.m.w - 1.) * wfade * step(.15, hs(bay * 3.1 + flr * 5.7 + sd));
       let lit = step(.86, hs(flr * 13.1 + bay * 7.7 + sd * 31.));
       alb = mix(alb, vec3f(.05, .055, .06), win * .9);
       alb = mix(alb, alb * vec3f(.82, .8, .78), (1. - wfade) * wall * .5);
@@ -432,7 +435,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     alb = mix(vec3f(.34, .25, .16), vec3f(.24, .17, .11), B.c) * (1. - .3 * grv * f32(mat == 12)) * (.88 + .24 * C.h);
     vao = mix(.55, 1., ss(0., 2., i.op.y - sd * 37.)); bump = .8;
   } else if (mat == 13) {
-    alb = mix(vec3f(.52, .20, .035), vec3f(.32, .10, .025), hs(sd * 17.)) * (.8 + .3 * C.h); gloss = .4; bump = .6;
+    alb = mix(vec3f(.38, .15, .04), vec3f(.24, .08, .03), hs(sd * 17.)) * (.8 + .3 * C.h); gloss = .35; bump = .6;
   } else if (mat == 14) {
     alb = vec3f(.46, .37, .27) * (.8 + .35 * B.h); bump = .5; gloss = .02;
   } else if (mat == 16) {
@@ -441,19 +444,21 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
   // water: sky reflection over a dark channel bed, ripples from the detail texture
   if (mat == 15) {
     let V = normalize(g.cam.xyz - i.wp);
-    let N = normalize(vec3f(rpW.x * .06, 1., rpW.y * .06));
+    let N = normalize(vec3f(rpW.x * .02, 1., rpW.y * .02));
     let fr = .02 + .98 * pow(1. - sat(dot(N, V)), 5.);
     let R = reflect(-V, N);
-    var c = mix(vec3f(.02, .032, .024), skyCol(R, g.sun.xyz) * .7, fr * .9) + SUNC * shadow1(i.wp) * pow(sat(dot(R, g.sun.xyz)), 800.) * 5.;
+    var c = mix(vec3f(.02, .03, .022), skyCol(R, g.sun.xyz) * .8, .3 + .65 * fr) + SUNC * shadow1(i.wp) * pow(sat(dot(R, g.sun.xyz)), 700.) * 6.;
     return fin(aerial(c, i.wp));
   }
-  let N = normalize(qrot(i.q, normalize(on + (A.n * .8 + B.n * .6 + C.n * .4 * ss(70., 10., dist) + F.n * .5 * fk) * bump)));
+  let lvN = select(0., max(nm.g * nk, fm.r * (1. - nk)), mat <= 1);
+  let N = normalize(qrot(i.q, normalize(on + (A.n * .8 * (1. - lvN * .8) + B.n * .6 * (1. - lvN * .5) + C.n * (.4 + lvN) * ss(70., 10., dist) + F.n * (.5 + lvN) * fk) * bump)));
   let L = g.sun.xyz; let V = normalize(g.cam.xyz - i.wp);
   let vv = vol(i.wp + n0 * 1.2); let v2 = vol(i.wp + n0 * 4.);
   var ao = (sat((vv.x - .5) * 6.) * .5 + sat((v2.x - .5) * 2.5) * .5) * vao * mix(1., i.ao, f32(mat == 1));
   ao = mix(ao, vao * select(1., i.ao, far), 1. - nk);
   ao = select(ao, .5 + .5 * ao, mat >= 5 && mat != 12 && mat != 13);
   ao = select(ao, .35 + .65 * ao, mat == 12 || mat == 13);
+  ao = select(ao, .25 + .75 * ao, mat == 2 || (mat <= 1 && lvN > .5));
   let sh = select(shadow9(i.wp + n0 * (.3 + dist * .002)), sat(i.ao * 1.6 - .3), far);
   let E = SUNC * sh;
   let ndl = sat(dot(N, L));
