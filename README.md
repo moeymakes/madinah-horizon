@@ -51,6 +51,7 @@ It works offline. It needs a browser with **WebGPU**.
 | Jump to a viewpoint | `1` to `6` |
 | Menu | `Esc` |
 | Sound on / off | `M` |
+| Sound mix | **Garden**, **Wind**, **Birds**, **Calm** or **Off** in the menu, plus a volume slider (remembered next visit) |
 | Performance stats | `H` |
 | Detail level | **Low**, **Medium** or **High** in the menu (reloads the page) |
 
