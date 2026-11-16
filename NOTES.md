@@ -63,3 +63,4 @@ Uhud. Long shadows, sun shafts through palm fronds, soft golden haze turning blu
   Fly (F): free 6-DOF, max 260 m altitude, radius 600 m. Dev flight moved to key P, benchmark B.
 - Audio: wind bed with gusts, palm-frond rustle tied to gusts, dove coos (FM), small-bird chirps, water
   trickle near the channel, a soft drone. Nothing recited.
+- Time of day: DONE 2026-11-16 - Dawn / Golden hour / Night row (localStorage madinahTime, reload on change, default golden hour); night has lamp pools on the plaza, lit Masjid, windows, moon and stars. 0 errors at High and Low for all three.

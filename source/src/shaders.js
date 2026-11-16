@@ -213,8 +213,11 @@ fn kar(c: vec3f) -> vec4f { let w = 1. / (1. + max(c.r, max(c.g, c.b))); return 
 // ---------------------------------------------------------------- shared: uniforms, sky, air
 const S_G = /*wgsl*/`
 struct G { vp: mat4x4f, sm: mat4x4f, cam: vec4f, right: vec4f, up: vec4f, fwd: vec4f, sun: vec4f, res: vec4f, mis: vec4f };
-const SUNC = vec3f(2.9, 2.1, 1.35);
-const ZEN = vec3f(.10, .24, .58);
+const SUNC = vec3f(${TP.sunc.join(', ')});
+const ZEN = vec3f(${TP.zen.join(', ')});
+const WARMH = vec3f(${TP.warm.join(', ')}); const COOLH = vec3f(${TP.cool.join(', ')}); const BAND = vec3f(${TP.band.join(', ')});
+const BOUNCE = vec3f(${TP.bounce.join(', ')}); const AMB0 = vec3f(${TP.amb.join(', ')}); const FARBLUE = vec3f(${TP.farblue.join(', ')}); const CLOUDC = vec3f(${TP.cloud.join(', ')});
+const LIGHTS = ${TP.lights}; const LITF = ${TP.litf}; const NIGHT = ${TP.night}.;
 const HOR = vec3f(.98, .66, .42);
 const BETA = vec3f(.75e-4, .9e-4, 1.15e-4);
 const HSCALE = 300.;
@@ -232,9 +235,9 @@ fn skyCol(rd: vec3f, sun: vec3f) -> vec3f {
   let h = vec2f(rd.x, rd.z); let hl = max(length(h), 1e-4);
   let tw = .5 + .5 * dot(h / hl, normalize(sun.xz));
   let mu = dot(rd, sun);
-  let hor = mix(vec3f(.74, .68, .66), vec3f(1.35, .84, .44), tw * tw);
+  let hor = mix(COOLH, WARMH, tw * tw);
   var c = mix(hor, ZEN, pow(y, .5));
-  c += vec3f(1., .5, .2) * .35 * pow(sat(1. - y * 4.), 3.) * tw * tw * tw;
+  c += BAND * .35 * pow(sat(1. - y * 4.), 3.) * mix(tw * tw * tw, .4 + .6 * sat(-rd.z * .8 + .5), NIGHT);
   c += SUNC * (.04 * pow(max(mu, 0.), 5.) + .12 * pow(max(mu, 0.), 40.) + .3 * pow(max(mu, 0.), 500.));
   return mix(c, mix(vec3f(.46, .46, .5), vec3f(1., .66, .4), tw), sat(-rd.y * 5.));
 }
@@ -247,7 +250,7 @@ fn aerialAt(c: vec3f, cam: vec3f, wp: vec3f, sun: vec3f) -> vec3f {
   let k2 = rd.y / 70.;
   let od2 = select((1. - exp(-k2 * d)) / k2, d, abs(k2) < 1e-7) * exp(-max(cam.y, -30.) / 70.);
   let T = exp(-BETA * od - vec3f(1.5e-4, 1.6e-4, 1.75e-4) * od2);
-  let ins = mix(skyCol(normalize(vec3f(rd.x, max(rd.y, 0.) * .3 + .012, rd.z)), sun), vec3f(.56, .64, .80), ss(900., 6000., d) * .55);
+  let ins = mix(skyCol(normalize(vec3f(rd.x, max(rd.y, 0.) * .3 + .012, rd.z)), sun), FARBLUE, ss(900., 6000., d) * .55);
   return c * T + ins * (1. - T);
 }
 fn qrot(q: vec4f, v: vec3f) -> vec3f { return v + 2. * cross(q.xyz, cross(q.xyz, v) + q.w * v); }
@@ -288,7 +291,7 @@ fn vol(p: vec3f) -> vec2f {
 }
 fn amb(n: vec3f, sky: f32) -> vec3f {
   let up = n.y * .5 + .5;
-  return (mix(ZEN, vec3f(.36, .32, .34), .35) * 1.1 * up * up + vec3f(.66, .46, .30) * .36 * (1. - up) + vec3f(.10, .08, .065)) * (.3 + .7 * sky);
+  return (mix(ZEN, vec3f(.36, .32, .34) * ZEN.b / .58, .35) * 1.1 * up * up + BOUNCE * .36 * (1. - up) + AMB0) * (.3 + .7 * sky);
 }
 fn aerial(c: vec3f, wp: vec3f) -> vec3f { return aerialAt(c, g.cam.xyz, wp, g.sun.xyz); }
 `;
@@ -370,6 +373,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     let marble = vec3f(.86, .84, .80) * (1. - .16 * tile) * mix(1., .9, bandM) * (.96 + .06 * B.c);
     let street = mix(vec3f(.36, .35, .35) * (.9 + .15 * C.c), vec3f(.64, .60, .54) * (.9 + .12 * B.c), ss(.4, .65, Lg.a));
     alb = mix(alb, mix(street, marble, ss(.9, .97, city)), ss(.05, .2, city));
+    emi = mix(vec3f(1., .55, .25) * .035 * (.4 + .6 * ss(.4, .7, Lg.a)), vec3f(1., .86, .66) * (.025 + .11 * ss(.5, .1, length(fract(i.wp.xz / 24.) - .5))), ss(.9, .97, city)) * ss(.05, .2, city) * NIGHT;
     alb = mix(alb, mix(mix(vec3f(.09, .075, .065), vec3f(.18, .135, .10), A.h) * (.7 + .6 * B.c), vec3f(.42, .30, .19), ss(.6, .8, B.c) * .4), lava * (1. - nk) * .8);
     alb *= mix(1., .6 + .8 * F.h, fk);
     bump = select(1.3, mix(.8, .2, ss(.05, .2, city)), far); gloss = mix(.03, .16, lava * (1. - flt)) * ss(120., 20., dist);
@@ -398,7 +402,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
       let bw = mix(2.6, 4.6, hs(sd * 11.)); let ww = mix(.18, .34, hs(sd * 13.));
       let wx = fract(fu / bw); let wy = fract(fv / 3.3); let flr = floor(fv / 3.3); let bay = floor(fu / bw);
       let win = step(.5 - ww, wx) * step(wx, .5 + ww) * step(.3, wy) * step(wy, .74) * step(1., flr) * wall * step(fv, i.m.w - 1.) * wfade * step(.15, hs(bay * 3.1 + flr * 5.7 + sd));
-      let lit = step(.86, hs(flr * 13.1 + bay * 7.7 + sd * 31.));
+      let lit = step(LITF, hs(flr * 13.1 + bay * 7.7 + sd * 31.));
       let frame = step(.5 - ww - .05, wx) * step(wx, .5 + ww + .05) * step(.25, wy) * step(wy, .79) * step(1., flr) * wall * step(fv, i.m.w - 1.) * wfade * (1. - win);
       alb = mix(alb, alb * 1.12 + .03, frame);
       let roshan = step(.8, hs(sd * 19.)) * step(.5, hs(bay * 7.3 + sd * 3.)) * step(1., flr) * wall * wfade * step(.12, wy) * step(wy, .9) * step(abs(wx - .5), ww + .12);
@@ -411,7 +415,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
       alb *= 1. - .1 * ss(.06, .0, abs(fract(fv / 3.3))) * wall * step(1., flr) * wfade;
       alb *= mix(.82, 1., ss(0., 6., fv));
       alb = mix(alb, alb * vec3f(.82, .8, .78), (1. - wfade) * wall * .5);
-      emi = vec3f(1., .62, .30) * .9 * win * lit;
+      emi = vec3f(1., .62, .30) * .9 * win * lit * LIGHTS;
       alb = mix(alb, alb * vec3f(.5, .47, .45), ss(.6, .9, on.y));
       gloss = mix(.08, .55, win);
     } else {
@@ -424,7 +428,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
       alb = mix(alb, alb * vec3f(1.08, 1.02, .94), (a1 - a1i) * step(.5, i.m.w));
       alb = mix(alb, inner, a1i * step(.5, i.m.w));
       alb = mix(alb, vec3f(.05, .05, .06), a2 * .9 * step(.5, i.m.w));
-      emi = vec3f(1., .7, .4) * (.04 * a1i + .07 * a2) * step(.5, i.m.w);
+      emi = vec3f(1., .7, .4) * (.04 * a1i + .07 * a2) * step(.5, i.m.w) * LIGHTS;
       gloss = mix(.08, .5, a2);
       let seam = (1. - ss(.0, .04, abs(fract(i.op.x / 12.) - .5) * 2. - .9) * ss(.0, .04, abs(fract(i.op.z / 12.) - .5) * 2. - .9));
       alb = mix(alb, vec3f(.84, .78, .68) * (1. - .2 * seam) * (.9 + .2 * B.c), ss(.6, .9, on.y) * f32(mat == 7));
@@ -432,15 +436,16 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
       alb = mix(alb, alb * vec3f(.92, .84, .7), band * .6);
     }
     bump = .04;
+    emi += alb * .3 * NIGHT * f32(mat != 17);
   } else if (mat == 8) {
     let rib = ss(.4, .5, abs(fract(atan2(i.op.z, i.op.x) / TAU * 24.) - .5)) * .3;
-    alb = vec3f(.06, .30, .17) * (1. - rib) * (.92 + .16 * B.h); gloss = .5; bump = .05;
+    alb = vec3f(.06, .30, .17) * (1. - rib) * (.92 + .16 * B.h); gloss = .5; bump = .05; emi = alb * 1.2 * NIGHT;
   } else if (mat == 9) {
-    alb = vec3f(.58, .60, .62) * (.9 + .15 * B.h); gloss = .75; metal = .6; bump = .1;
+    alb = vec3f(.58, .60, .62) * (.9 + .15 * B.h); gloss = .75; metal = .6; bump = .1; emi = alb * .3 * NIGHT;
   } else if (mat == 10) {
-    alb = vec3f(1., .70, .28); gloss = .9; metal = 1.; bump = 0.;
+    alb = vec3f(1., .70, .28); gloss = .9; metal = 1.; bump = 0.; emi = alb * 1.5 * NIGHT;
   } else if (mat == 11) {
-    alb = vec3f(.74, .73, .70) * (.92 + .1 * B.h); gloss = .12; bump = .1;
+    alb = vec3f(.74, .73, .70) * (.92 + .1 * B.h); gloss = .12; bump = .1; emi = vec3f(1., .82, .6) * .25 * NIGHT;
   } else if (mat == 12 || mat == 18) {
     // date palm trunk: spiral of cut leaf bases makes a diamond crosshatch
     let ang = atan2(i.op.z - sd * 37., i.op.x - sd * 37.) / TAU;
@@ -624,10 +629,15 @@ struct VO { @builtin(position) cp: vec4f, @location(0) d: vec3f };
     let r = vec2f(q.x * .96 + q.y * .28, q.y * .96 - q.x * .28) * vec2f(.00011, .00042) + vec2f(g.cam.w * .002, 0.);
     let n = fbm(vec3f(r, 1.3), 5) + .35 * (fbm(vec3f(r * 3.1, 4.1), 3) - .5);
     let cov = ss(.58, .84, n) * ss(.03, .2, rd.y) * (1. - ss(.35, .9, rd.y));
-    let lit = mix(vec3f(1.2, .74, .52), vec3f(2.4, 1.3, .62), pow(max(mu, 0.), 3.)) * (.75 + .5 * fbm(vec3f(r * 7., 2.), 2));
+    let lit = mix(CLOUDC, CLOUDC * vec3f(2., 1.75, 1.2), pow(max(mu, 0.), 3.)) * (.75 + .5 * fbm(vec3f(r * 7., 2.), 2));
     c = mix(c, lit, cov * .5);
   }
-  c += SUNC * 9. * ss(.99988, .99994, mu);
+  c += mix(SUNC * 9., vec3f(2.4, 2.4, 2.2), NIGHT) * ss(mix(.99988, .99975, NIGHT), mix(.99994, .99982, NIGHT), mu);
+  // stars: one soft point per sky cell, a pixel or two wide, so they hold still as the camera moves
+  if (NIGHT > .5 && rd.y > 0.) {
+    let p = rd * 230.; let h = h33(floor(p)); let off = fract(p) - .5 - (h - .5) * .5;
+    c += vec3f(.85, .9, 1.) * step(.982, h.z) * ss(.14, .0, length(off)) * (.4 + 1.6 * h.x * h.x) * ss(.02, .2, rd.y) * 1.6;
+  }
   return fin(c);
 }
 `;

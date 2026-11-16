@@ -5,7 +5,9 @@
 // north of the start, Uhud 4.3 km. The ground model itself (heights and masks) is W_GROUND in shaders.js.
 
 // sun 9 degrees up in the west-south-west: facing north it lights things from the left
-const SUN = (() => { const v = [-.93, .158, .37]; const l = hypot(...v); return v.map((c) => c / l); })();
+// sun (or moon at night) direction from the chosen time of day (quality.js): facing north it lights from the left at
+// golden hour, from the right at dawn, and from high in the south-east at night
+const SUN = (() => { const v = TP.sun; const l = hypot(...v); return v.map((c) => c / l); })();
 const MOSQ = [0, -1150], QUBA = [-95, -150], MS = 1.25;
 // city block sizes (w, h, d), shared by the placement and the meshes: footprints nearly fill 30 m cells
 // w, h, d, setback storey; indices 6-8 are the hotels near the Haram

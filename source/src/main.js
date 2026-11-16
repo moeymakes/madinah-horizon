@@ -344,7 +344,7 @@ if (hasTS) {
 // ---------------------------------------------------------------- frame
 let hud = false, fly = false;
 let kf = 0, kb = 0, kl = 0, kr = 0, ku = 0, kd = 0, ks = 0, mdx = 0, mdy = 0, lkx = 0, lky = 0, l2x = 0, l2y = 0, hN = 0, hMax = 0, hMin = 1e9, hPer = 1e9, hLate = 0, hTot = 0, tId = -1, tN = 0, tx0 = 0, ty0 = 0, tx = 0, ty = 0;
-const TANH = 0.58, NEAR_ = 0.1, EXPO = 0.74, RAYS = 1;
+const TANH = 0.58, NEAR_ = 0.1, EXPO = TP.expo, RAYS = TP.rays;
 const submitList = [null];
 const rowOrd = new Uint8Array(CELLS);
 // draws the cells of a cell-sorted buffer that are in view and within [minD, maxD) (scaled by det, except the
@@ -571,6 +571,7 @@ const go = () => {
   if (mob) document.documentElement.requestFullscreen?.()?.then(() => screen.orientation.lock('landscape')).catch(() => 0);
   if (!mob) capture();
 };
+$('tm').querySelectorAll('button').forEach((b, i) => { if (i === TOD) b.className = 'on'; else b.onclick = () => { keep('madinahTime', i); location.reload(); }; });
 bDive.onclick = go; $('o').onclick = () => ui(true); $('fl').onclick = () => { fly = !fly; F[VY] = 0; };
 $('q').querySelectorAll('button').forEach((b, i) => { if (i === 2 - LV) b.className = 'on'; else b.onclick = () => { keep('madinah', 2 - i); location.reload(); }; });
 document.addEventListener('pointerlockchange', () => ui(!document.pointerLockElement));

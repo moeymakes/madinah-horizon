@@ -61,7 +61,7 @@ function mkSound(ac) {
     let v = hypot(F[CX] - lx, F[CY] - ly, F[CZ] - lz) / dt; if (v > 80) v = 0;
     lt = now; lx = F[CX]; ly = F[CY]; lz = F[CZ];
     rush.gain.setTargetAtTime(0.35 * pow(min(v / 40, 1), 1.2), t, 0.3); rushF.frequency.setTargetAtTime(240 + v * 12, t, 0.3);
-    const inGrove = max(abs(F[CX]), abs(F[CZ])) < 250 && F[CY] < 40, rate = SOUNDS[sndPreset][5];
+    const inGrove = max(abs(F[CX]), abs(F[CZ])) < 250 && F[CY] < 40, rate = SOUNDS[sndPreset][5] * TP.birds;
     rus.gain.setTargetAtTime(inGrove ? .09 : .02, t, 1.5);
     if (t > tB) { // a small bird: a burst of quick high chirps
       let tt = t; const pan = rr(-.8, .8), f = rr(2600, 4200);
