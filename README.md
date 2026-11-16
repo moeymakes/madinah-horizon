@@ -1,8 +1,10 @@
 # Madinah Horizon
 
-### ▶ [Play it in your browser](https://moeymakes.github.io/madinah-horizon/)
-
-Chrome or Edge on a desktop or laptop (it needs WebGPU). Nothing to install.
+<p align="center">
+  <a href="https://moeymakes.github.io/madinah-horizon/"><img src=".github/play.svg" alt="Play it in your browser" width="420"></a>
+</p>
+<p align="center"><b><a href="https://moeymakes.github.io/madinah-horizon/">moeymakes.github.io/madinah-horizon/</a></b><br>
+<sub>Chrome or Edge on a desktop or laptop (needs WebGPU) · nothing to install · one HTML file</sub></p>
 
 **Walk through the date gardens around Madinah at golden hour, right in your browser.**
 
@@ -14,7 +16,7 @@ front of Mount Uhud. Everything is made by code: no images, no 3D models, no sou
 The geography is composed and compressed so it fits in one view, and the buildings are respectful
 approximations, not replicas. There are no people in the scene, and nothing is recited.
 
-![A lane between walled date gardens, an irrigation channel leading north toward the Prophet's Mosque](.github/screenshots/lane-to-the-masjid.jpg)
+[![A lane between walled date gardens, an irrigation channel leading north toward the Prophet's Mosque](.github/screenshots/lane-to-the-masjid.jpg)](https://moeymakes.github.io/madinah-horizon/)
 
 | | |
 |---|---|
