@@ -4,29 +4,20 @@ Built with the `worldsmith` skill (`~/.shared/skills/worldsmith`). Brief: `promp
 
 ## State (update after every phase)
 
-- Realism stage 1 IN PROGRESS on branch `realism-s1` (started 2026-11-18 13:59 AEDT). Captures in
-  verify/s1-<step>-t<0|1|2>/ (1920x1080), helper scripts in the session scratchpad (cap.sh, sheet.py).
-  - Baseline (main c0639ab), city crop `--crop 0,.62,1,1` poses 5+6, 3 times: clip .59, flatwhite 4.22,
-    brightdetail 52.28 (gate: >= 60.1); GPU 6.16 / p99 7.46 ms at 2560x1440 High.
-  - 1 DONE af664e0: GTAO (half res, ambient share only via an r8 MRT) + TAA (half-pixel Halton jitter,
-    Catmull-Rom history, variance clip) + clamped sharpen; off on Low. brightdetail 49.96 (TAA removes
-    aliasing the metric counted), GPU 6.23 ms.
-  - 2 DONE 83eccb1: Hillaire sky LUTs (transmittance, MS, sky-view) + CPU sun transmittance + LUT sky
-    irradiance + closed-form aerial perspective; golden expo .64, dawn .8; night uplights fade with height.
-    Crop: clip .29, flatwhite 1.96, brightdetail 60.30 (+15.3%); GPU 6.76 / p99 8.41.
-    Open: golden pose 5 flatwhite 4.4 (sky glow beside the sun + sun-facing Quba wall), dawn pose 5 3.8,
-    night pose 5 3.3; night pose 6 clip 1.42 (lit windows, feature 4 should fix).
-    Critic on 2 (verify/s1-sky-*, highest major): no warm horizon glow near the sun (turb cut to 5 to stop
-    clipping removed it); Uhud and far city lack haze; night ground brighter than the sky; dawn ~ golden.
-    Fix loop 1 plan: per-time regional haze layer in airAt (~1 km scale, g .5) for Uhud/city depth; golden
-    turb back toward 10 and re-check pose 5 clip (exposure .64 + rays .75 already helped most); night moon
-    SUNC x.7 and night sky factor .25 -> .45; dawn sun lower (y .105 -> .06) + dust layer x1.6 for mist.
-    Out of stage-1 scope (critic repeats): palm variety/colour, lava field near-black, Uhud relief, umbrellas.
-  - Next: fix loop on 2, then 3 building massing: detailed CITY variants (parapet rings, setbacks,
-    balconies, roshan boxes, AC units, tanks) tagged by sub-material in vertex aux (<0 = wood/metal/
-    concrete, read in W_SOLID mat 17), used only within ~1.4 km of start/Haram (static split, +20 draws);
-    4 interior-mapped windows; 5 district tint; then the full gate matrix and ship.
-  - Capture flights with `--flight-key KeyP` (F toggles flying in this world).
+- Realism stage 1 BUILT, NOT SHIPPED (branch `realism-s1`, 04d5a40; main untouched). 2026-11-18 13:59-15:37 AEDT.
+  Features (one commit each): GTAO+TAA af664e0, Hillaire sky 83eccb1 (+fix 8977469), near-city massing + static
+  city shadow map 62260d8, interior-mapped windows 77ae055 (+fix 156aabc), district tint 30d0e6e, exposure 04d5a40.
+  Gates (city crop `--crop 0,.62,1,1`, poses 5+6, 3 times; verify/s1-final-*):
+  - PASS clip: max .35% (base .59 mean, 1.85 max). PASS brightdetail: mean 66.8 vs base 52.3 (+28%).
+  - FAIL flatwhite <2: golden pose 5 = 2.84% (dawn 1.69, night .93, pose 6 all ~0). The remainder is the sky
+    glow beside the low sun inside the crop, not a surface; exposure/shafts/dust cuts stopped moving it.
+  - FAIL critic: final round (Sonnet) highest major; majors are palms (repetition, lime colour), lava field
+    crushed black, Uhud smooth, sand shimmer, grid city layout: stage-2 scope except the city layout.
+  - PASS perf: GPU 6.98 avg / 9.96 p99 ms (2560x1440 High, 60 s flight). PASS errors: 0 at 3 times x High/Med/Low
+    (index.html). PASS menu-preview (phone/tablet/desktop, 0 errors). PASS size: 118.9 KB.
+  Decision needed from Moey: ship as is (gate exceptions above) or keep iterating. Contact sheet:
+  /home/moey/Dev/reports/madinah-horizon-realism-stage1-2026-11-18.jpg.
+  Capture flights with `--flight-key KeyP`; `--at x,y,z,yaw,pitch` gives free-camera close-ups.
 
 - Phase: SHIPPED to GitHub Pages (https://moeymakes.github.io/madinah-horizon/) at Moey's request; iteration 14 adds city/facade/Masjid detail, smoother dynamic resolution, lava pulled out of the city
 - Last good capture: verify/iter-14 (local only, verify/ is gitignored); minified index.html: 0 errors at High and Low
