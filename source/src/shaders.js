@@ -150,7 +150,9 @@ const W_FS = /*wgsl*/`
 // Rayleigh + Mie + ozone in km, Earth radius 6360 km. Madinah sits ~600 m up in dusty desert air, so the Mie
 // (aerosol) density is a few times the clear-sky value and its absorption leans blue, which is what makes the haze
 // warm. The same media drive the sun colour (CPU, below), the sky (LUTs, main.js) and the aerial perspective.
-const ATM = { turb: [7, 5, 12][TOD], alt: .62 };
+// turb: aerosol multiple of a clear sky. haze: the dusty boundary layer over the city (per km, ~1 km deep) that
+// makes Uhud and the far city fade; dust: the 70 m ground layer (dawn mist lies thicker in the hollows)
+const ATM = { turb: [7, 8, 12][TOD], haze: [.06, .075, .04][TOD], dust: [1.3, 1, 1][TOD], alt: .62 };
 const ATM_BR = [5.802e-3, 13.558e-3, 33.1e-3], ATM_BO = [.65e-3, 1.881e-3, .085e-3];
 const ATM_BMS = 3.996e-3 * ATM.turb, ATM_BME = [4.5e-3, 4.75e-3, 5.2e-3].map((v) => v * ATM.turb);
 const SUNV = TP.sun.map((c) => c / hypot(...TP.sun));
@@ -170,7 +172,7 @@ const atmT = (h) => {
 const ATM_TS = atmT(ATM.alt), ATM_T6 = atmT(6), lum3 = (v) => v[0] * .2126 + v[1] * .7152 + v[2] * .0722;
 const ATM_NT = TP.night ? [.62, .78, 1.3] : [1, 1, 1];
 const ATM_S = lum3(TP.sunc) / lum3(ATM_TS);
-const SUNCP = ATM_TS.map((v, c) => v * ATM_S * ATM_NT[c]), CLOUDSUN = ATM_T6.map((v, c) => v * ATM_S * ATM_NT[c]);
+const SUNCP = ATM_TS.map((v, c) => v * ATM_S * ATM_NT[c] * (TP.night ? .7 : 1)), CLOUDSUN = ATM_T6.map((v, c) => v * ATM_S * ATM_NT[c]);
 const f3 = (v) => v.map((x) => x.toPrecision(5)).join(', ');
 const W_ATMC = /*wgsl*/`
 const RG = 6360.; const RT = 6460.; const HR = 8.; const HM = 1.2; const MG = .76;
@@ -347,7 +349,7 @@ const S_G = /*wgsl*/`
 struct G { vp: mat4x4f, sm: mat4x4f, cam: vec4f, right: vec4f, up: vec4f, fwd: vec4f, sun: vec4f, res: vec4f, mis: vec4f, pvp: mat4x4f, jit: vec4f, amb: vec4f };
 const SUNC = vec3f(${f3(SUNCP)}); const CLOUDSUN = vec3f(${f3(CLOUDSUN)});
 // sky radiance per unit of the LUT: pi * solar scale, because surfaces here take SUNC as irradiance / pi
-const SKYS = vec3f(${f3(ATM_NT.map((v) => v * ATM_S * PI * (TP.night ? .25 : 1)))});
+const SKYS = vec3f(${f3(ATM_NT.map((v) => v * ATM_S * PI * (TP.night ? .45 : 1)))});
 const BAND = vec3f(${TP.band.join(', ')});
 const BOUNCE = vec3f(${TP.bounce.join(', ')}); const AMB0 = vec3f(${TP.amb.join(', ')});
 const LIGHTS = ${TP.lights}; const LITF = ${TP.litf}; const NIGHT = ${TP.night}.;
@@ -391,7 +393,9 @@ fn skyCol(rd: vec3f, sun: vec3f) -> vec3f {
 // single scattering of the sun (Rayleigh and Mie phase) plus the LUT's multiple scattering, and a 70 m dust layer
 // over the ground. Far away it hands over to the sky LUT so the horizon has no seam.
 struct Air { t: vec3f, i: vec3f };
-const DUST = vec3f(.8e-4, .86e-4, .95e-4);
+const DUST = vec3f(.8e-4, .86e-4, .95e-4) * ${ATM.dust};
+// dust absorbs a little more blue than red, which is what warms the haze
+const HAZE = vec3f(.9, 1., 1.12) * ${ATM.haze};
 fn airAt(cam: vec3f, wp: vec3f, sun: vec3f) -> Air {
   let v = wp - cam; let d = max(length(v), 1e-3); let rd = v / d;
   let hc = max(cam.y, -30.) * 1e-3 + ALT; let dk = d * 1e-3;
@@ -399,8 +403,10 @@ fn airAt(cam: vec3f, wp: vec3f, sun: vec3f) -> Air {
   let odR = select((1. - exp(-kr * dk)) / kr, dk, abs(kr) < 1e-6) * exp(-hc / HR);
   let odM = select((1. - exp(-km * dk)) / km, dk, abs(km) < 1e-6) * exp(-hc / HM);
   let od2 = select((1. - exp(-k2 * d)) / k2, d, abs(k2) < 1e-7) * exp(-max(cam.y, -30.) / 70.);
-  let sR = BR * odR; let sM = BMS * odM; let sD = DUST * .9 * od2;
-  let tau = sR + BME * odM + DUST * od2;
+  let kh = rd.y / 1.;
+  let odH = select((1. - exp(-kh * dk)) / kh, dk, abs(kh) < 1e-6) * exp(-max(cam.y, -30.) * 1e-3);
+  let sR = BR * odR; let sM = BMS * odM; let sD = DUST * .9 * od2 + HAZE * .85 * odH;
+  let tau = sR + BME * odM + DUST * od2 + HAZE * odH;
   let T = exp(-tau);
   let mu = dot(rd, sun);
   let ms = textureSampleLevel(tMS, sC, vec2f(sun.y * .5 + .5, ALT / (RT - RG)), 0.).rgb;
