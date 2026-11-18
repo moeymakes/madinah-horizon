@@ -510,7 +510,7 @@ function makeWorld(D, T, NA, FAR, flyPts) {
   }
 
   // --- real streets and hotel sites around the Haram (OpenStreetMap, data.js), metres from the mosque centre
-  const ROADR = 1300, RM = 1024, RMS = 2800 / RM, roadMask = new Uint8Array(RM * RM * 2), placed = [], segs = [], segB = new Map(), hotels = [];
+  const ROADR = 1300, RM = 1024, RMS = 2800 / RM, roadMask = new Uint8Array(RM * RM), segs = [], segB = new Map(), hotels = [];
   {
     const b = atob(OSM_HARAM), u8 = (i) => b.charCodeAt(i), s8 = (i) => (u8(i) << 24) >> 24, s16 = (i) => ((u8(i) | (u8(i + 1) << 8)) << 16) >> 16;
     let i = 0;
@@ -528,14 +528,13 @@ function makeWorld(D, T, NA, FAR, flyPts) {
     }
     // the world's plaza is larger than the real one: hotel sites that fall on it are left out
     for (; i + 7 <= b.length; i += 7) { const hx = s16(i), hz = s16(i + 2); if (abs(hx) > 340 || hz < -440 || hz > 400) hotels.push([MOSQ[0] + hx, MOSQ[1] + hz, u8(i + 4), u8(i + 5), u8(i + 6) / 255 * PI]); }
-    // street mask for the ground shader, 1024^2 over 2.8 km around the mosque: r = carriageway, g = carriageway and
-    // its 3 m pavements, anti-aliased edges
+    // asphalt mask for the ground shader: 1024^2 over 2.8 km around the mosque, anti-aliased edges
     for (const [x0, z0, x1, z1, w] of segs) {
-      const ax = (x0 - MOSQ[0]) / RMS + RM / 2, az = (z0 - MOSQ[1]) / RMS + RM / 2, bx = (x1 - MOSQ[0]) / RMS + RM / 2, bz = (z1 - MOSQ[1]) / RMS + RM / 2, r = w / RMS, rp = (w + 3) / RMS;
+      const ax = (x0 - MOSQ[0]) / RMS + RM / 2, az = (z0 - MOSQ[1]) / RMS + RM / 2, bx = (x1 - MOSQ[0]) / RMS + RM / 2, bz = (z1 - MOSQ[1]) / RMS + RM / 2, r = w / RMS;
       const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1e-9;
-      for (let py = max(0, floor(min(az, bz) - rp - 1)); py <= min(RM - 1, Math.ceil(max(az, bz) + rp + 1)); py++) for (let px = max(0, floor(min(ax, bx) - rp - 1)); px <= min(RM - 1, Math.ceil(max(ax, bx) + rp + 1)); px++) {
-        const t = clamp(((px + .5 - ax) * dx + (py + .5 - az) * dz) / l2, 0, 1), d = hypot(px + .5 - ax - dx * t, py + .5 - az - dz * t), k = (px + py * RM) * 2;
-        roadMask[k] = max(roadMask[k], round(clamp(r + .5 - d, 0, 1) * 255)); roadMask[k + 1] = max(roadMask[k + 1], round(clamp(rp + .5 - d, 0, 1) * 255));
+      for (let py = max(0, floor(min(az, bz) - r - 1)); py <= min(RM - 1, Math.ceil(max(az, bz) + r + 1)); py++) for (let px = max(0, floor(min(ax, bx) - r - 1)); px <= min(RM - 1, Math.ceil(max(ax, bx) + r + 1)); px++) {
+        const t = clamp(((px + .5 - ax) * dx + (py + .5 - az) * dz) / l2, 0, 1), d = hypot(px + .5 - ax - dx * t, py + .5 - az - dz * t);
+        const v = round(clamp(r + .5 - d, 0, 1) * 255), k = px + py * RM; if (v > roadMask[k]) roadMask[k] = v;
       }
     }
   }
@@ -568,15 +567,19 @@ function makeWorld(D, T, NA, FAR, flyPts) {
     let yaw = -ang + quarter + jit;
     // around the Haram the real streets decide: nothing stands on a road or on a hotel site, and blocks face the
     // nearest street (the random stream is consumed the same way either way, so the rest of the city is unchanged)
-    // around the Haram the blocks are built along the real streets instead (below); the random stream is consumed
-    // the same way either way, so the rest of the city is unchanged
-    if (hypot(x - MOSQ[0], z - MOSQ[1]) < ROADR) continue;
-    const near = hypot(x, (z + 575) * .8) < 1000;
-    solid(26 + t * 2 + v + (near ? CITY.length * 2 : 0), x, fh(x, z) - .5, z, sc, yawQ(yaw), 17, seed, 0, CITY[t][1] * sc);
+    let bx = x, bz = z;
+    if (hypot(x - MOSQ[0], z - MOSQ[1]) < ROADR) {
+      const [d, a, nx, nz] = roadAt(x, z), need = CITY[t][0] * sc * .5 + 2;
+      if (d < 2 || inHotel(x, z, 10)) continue;
+      // set the block back from the street to its kerb line, facing it
+      if (d < need) { bx += nx * (need - d); bz += nz * (need - d); if (roadAt(bx, bz)[0] < need - 1) continue; }
+      yaw = -a + quarter + jit;
+    }
+    const near = hypot(bx, (bz + 575) * .8) < 1000;
+    solid(26 + t * 2 + v + (near ? CITY.length * 2 : 0), bx, fh(bx, bz) - .5, bz, sc, yawQ(yaw), 17, seed, 0, CITY[t][1] * sc);
    }
   }
-  // hotels on their real sites: tall blocks along the footprint's long axis (placed before the houses' overlap check
-  // could see them, so houses keep 10 m off hotel sites instead)
+  // hotels on their real sites: tall blocks along the footprint's long axis
   rseed(55);
   for (const [hx, hz, w, d, a] of hotels) {
     const long = max(w, d), short = min(w, d), t = short > 40 ? 8 : short > 26 ? 7 : 6, sc = clamp(short / CITY[t][0], .7, 1.35);
@@ -584,25 +587,6 @@ function makeWorld(D, T, NA, FAR, flyPts) {
     for (let k = 0; k < n; k++) {
       const o = (k - (n - 1) / 2) * long / n, x = hx + cos(ax) * o, z = hz + sin(ax) * o;
       solid(26 + t * 2 + (k & 1) + CITY.length * 2, x, fh(x, z) - .5, z, sc, yawQ(-ax + (w >= d ? 0 : PI / 2)), 17, rnd(), 0, CITY[t][1] * sc);
-    }
-  }
-  // street frontages around the Haram: walk both sides of every real street, setting blocks back to the kerb and
-  // facing it, tall ones near the mosque, skipping roads, hotel sites, the plaza and blocks that would overlap
-  rseed(77);
-  for (const [x0, z0, x1, z1, w] of segs) {
-    const L = hypot(x1 - x0, z1 - z0); if (L < 12) continue;
-    const ux = (x1 - x0) / L, uz = (z1 - z0) / L, a = atan2(uz, ux);
-    for (const side of [-1, 1]) for (let s0 = rr(2, 10); s0 < L - 6;) {
-      const dm = hypot((x0 + ux * s0) - MOSQ[0], ((z0 + uz * s0) - MOSQ[1]) * 1.15);
-      const t = dm < 650 && rnd() < .5 ? (rnd() < .6 ? 6 : 7) : CITY_LOW[(rnd() * CITY_LOW.length) | 0], sc = rr(.75, 1);
-      const half = CITY[t][0] * sc * .5, dep = CITY[t][2] * sc * .5, off = w + 2.5 + dep;
-      const x = x0 + ux * (s0 + half) - uz * side * off, z = z0 + uz * (s0 + half) + ux * side * off, c = farB(x, z, 0), v = rnd() < .5 ? 1 : 0, seed = rnd();
-      s0 += half * 2 + rr(1, 5);
-      if (hypot(x - MOSQ[0], z - MOSQ[1]) > ROADR || c < .05 || c > .95 || roadAt(x, z)[0] < dep * .8 || inHotel(x, z, 8)) continue;
-      const rad = max(half, dep);
-      if (placed.some(([px, pz, pr]) => hypot(x - px, z - pz) < (rad + pr) * .85)) continue;
-      placed.push([x, z, rad]);
-      solid(26 + t * 2 + v + CITY.length * 2, x, fh(x, z) - .5, z, sc, yawQ(-a + rr(-.02, .02)), 17, seed, 0, CITY[t][1] * sc);
     }
   }
   // far palm groves and gardens
