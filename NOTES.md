@@ -16,7 +16,16 @@ Built with the `worldsmith` skill (`~/.shared/skills/worldsmith`). Brief: `promp
     Crop: clip .29, flatwhite 1.96, brightdetail 60.30 (+15.3%); GPU 6.76 / p99 8.41.
     Open: golden pose 5 flatwhite 4.4 (sky glow beside the sun + sun-facing Quba wall), dawn pose 5 3.8,
     night pose 5 3.3; night pose 6 clip 1.42 (lit windows, feature 4 should fix).
-  - Next: 3 building massing (world.js CITY meshes), 4 interior-mapped windows, 5 district tint, then gates.
+    Critic on 2 (verify/s1-sky-*, highest major): no warm horizon glow near the sun (turb cut to 5 to stop
+    clipping removed it); Uhud and far city lack haze; night ground brighter than the sky; dawn ~ golden.
+    Fix loop 1 plan: per-time regional haze layer in airAt (~1 km scale, g .5) for Uhud/city depth; golden
+    turb back toward 10 and re-check pose 5 clip (exposure .64 + rays .75 already helped most); night moon
+    SUNC x.7 and night sky factor .25 -> .45; dawn sun lower (y .105 -> .06) + dust layer x1.6 for mist.
+    Out of stage-1 scope (critic repeats): palm variety/colour, lava field near-black, Uhud relief, umbrellas.
+  - Next: fix loop on 2, then 3 building massing: detailed CITY variants (parapet rings, setbacks,
+    balconies, roshan boxes, AC units, tanks) tagged by sub-material in vertex aux (<0 = wood/metal/
+    concrete, read in W_SOLID mat 17), used only within ~1.4 km of start/Haram (static split, +20 draws);
+    4 interior-mapped windows; 5 district tint; then the full gate matrix and ship.
   - Capture flights with `--flight-key KeyP` (F toggles flying in this world).
 
 - Phase: SHIPPED to GitHub Pages (https://moeymakes.github.io/madinah-horizon/) at Moey's request; iteration 14 adds city/facade/Masjid detail, smoother dynamic resolution, lava pulled out of the city
