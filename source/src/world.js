@@ -13,7 +13,8 @@ const MOSQ = [0, -1150], QUBA = [-95, -150], MS = 1.25;
 // w, h, d, setback storey; indices 6-8 are the hotels near the Haram
 const CITY = [[27, 6.6, 28, 0], [28, 9.9, 26, 0], [24, 9.9, 27, 1], [28, 13.2, 28, 0], [26, 6.6, 27, 1], [20, 9.9, 28, 0], [28, 19.8, 28, 1], [29, 26.4, 29, 0], [26, 33, 26, 1], [22, 6.6, 24, 1]];
 // each type has two meshes with different rooftops (tanks, stair rooms), so neighbours rarely match
-const CITY_LOW = [0, 1, 2, 3, 4, 5, 9], NSOLID = 26 + CITY.length * 2;
+// ids 26.. plain boxes for the far city, then the same types with detailed massing for the near city
+const CITY_LOW = [0, 1, 2, 3, 4, 5, 9], NSOLID = 26 + CITY.length * 4;
 // viewpoints: x, eye height above the ground (absolute y when flying), z, look-at x, y, z, flying
 const POSES = [
   [-12.4, 1.7, 128, -14, 6, -400, 0],
@@ -239,6 +240,57 @@ function meshCityBox(w, h, d, step, v) {
   else { box(m, w * .15, h + .9, -d * .3, w * .15 + 2.4, h + 3.2, -d * .3 + 2.4); tank(-w * .3, d * .25, .9, 1.7); tank(-w * .3 + 2.2, d * .25, .9, 1.7); box(m, w * .3, h + .9, d * .3, w * .3 + 1.2, h + 1.6, d * .3 + .8); }
   return m;
 }
+// near-city massing: parapet ring, plinth, setbacks on tall blocks, balconies, roshan boxes, AC units, a stair
+// tower and tanks. Parts carry a sub-material in the vertex aux, read by the facade shader (material 17):
+// -.25 wood, -.5 metal and plastic, -.75 concrete; 1 = rendered wall with windows.
+const WOOD = -.25, METAL = -.5, CONC = -.75;
+function meshCityDetail(w, h, d, step, v) {
+  const m = new Mesh(), F = 3.3, nf = round(h / F), W2 = w / 2, D2 = d / 2;
+  rseed(900 + round(w * 7 + h * 13 + d * 3) + v * 57);
+  const ring = (x0, z0, x1, z1, y, ht, t) => {
+    box(m, x0, y, z0, x1, y + ht, z0 + t, CONC); box(m, x0, y, z1 - t, x1, y + ht, z1, CONC);
+    box(m, x0, y, z0 + t, x0 + t, y + ht, z1 - t, CONC); box(m, x1 - t, y, z0 + t, x1, y + ht, z1 - t, CONC);
+  };
+  const tank = (x, y, z, r, th) => lathe(m, [[r, 0, METAL], [r, th, METAL], [r * .8, th + .25, METAL], [0, th + .3, METAL]], 8, x, y, z);
+  // tall blocks step back their top storeys on the street side: a roof terrace with its own parapet
+  const back = h > 12 && v ? (h > 20 ? 2 : 1) : 0, hb = h - back * F, inset = rr(2.4, 3.6);
+  box(m, -W2, 0, -D2, W2, hb, D2);
+  if (back) { box(m, -W2, hb, -D2, W2, h, D2 - inset); ring(-W2, D2 - inset, W2, D2, hb, 1, .22); }
+  ring(-W2 - .05, -D2 - .05, W2 + .05, (back ? D2 - inset : D2) + .05, h, 1.05, .25);
+  box(m, -W2 - .12, 0, -D2 - .12, W2 + .12, .55, D2 + .12, CONC);
+  // street face (+z): balconies on the upper floors of the taller blocks, roshan boxes on the low old houses
+  if (nf >= 3) {
+    const cols = [rr(-.38, -.15), rr(.12, .36)].map((k) => k * w), top = back ? nf - back : nf;
+    for (let f = 1; f < top; f++) for (const cx of cols) {
+      if (rnd() < .25) continue;
+      const y = f * F, bw = rr(2.6, 3.6);
+      box(m, cx - bw / 2, y - .18, D2, cx + bw / 2, y, D2 + 1.1, CONC);
+      box(m, cx - bw / 2, y, D2 + .95, cx + bw / 2, y + .95, D2 + 1.1, CONC);
+    }
+  } else {
+    for (const cx of [rr(-.35, -.1) * w, rr(.1, .35) * w]) {
+      const y = F + .3, bw = rr(2, 2.8);
+      box(m, cx - bw / 2, y, D2, cx + bw / 2, y + 2.5, D2 + .75, WOOD);
+      box(m, cx - bw / 2 - .1, y + 2.5, D2 - .05, cx + bw / 2 + .1, y + 2.75, D2 + .9, WOOD);
+      box(m, cx - bw / 2 + .2, y - .35, D2, cx + bw / 2 - .2, y, D2 + .55, WOOD);
+    }
+  }
+  // split AC units hang under windows on every face
+  for (let k = 0; k < 4 + nf; k++) {
+    const f = 1 + floor(rnd() * max(1, (back ? nf - back : nf) - 1)), y = f * F + .35, side = floor(rnd() * 4), u = rr(-.4, .4);
+    const [x0, z0, x1, z1] = side === 0 ? [u * w - .42, D2, u * w + .42, D2 + .32] : side === 1 ? [u * w - .42, -D2 - .32, u * w + .42, -D2]
+      : side === 2 ? [W2, u * d - .42, W2 + .32, u * d + .42] : [-W2 - .32, u * d - .42, -W2, u * d + .42];
+    box(m, x0, y, z0, x1, y + .58, z1, METAL);
+  }
+  // roof: stair and lift room with its own coping, tanks on stands
+  const sx = rr(-.3, .05) * w, sz = rr(-.35, -.1) * d - (back ? inset / 2 : 0);
+  box(m, sx, h, sz, sx + rr(2.6, 3.4), h + 2.9, sz + rr(3, 4.4));
+  box(m, sx - .1, h + 2.9, sz - .1, sx + 3.5, h + 3.15, sz + 4.5, CONC);
+  const nt = v ? 4 : 2;
+  for (let k = 0; k < nt; k++) { const tx = W2 * .2 + k * 1.9 - (v ? 2 : 0), tz = -D2 * .4 - (back ? inset / 2 : 0) + (v ? 3 : 0); box(m, tx - .7, h, tz - .7, tx + .7, h + .5, tz + .7, METAL); tank(tx, h + .5, tz, .65, 1.4); }
+  if (!v) box(m, -W2 * .7, h, D2 * .3 - (back ? inset : 0), -W2 * .7 + 1.4, h + .9, D2 * .3 - (back ? inset : 0) + 1.1, METAL);
+  return m;
+}
 function meshAcacia(sd) {
   rseed(340 + sd);
   const m = new Mesh(), tops = [];
@@ -447,7 +499,8 @@ function makeWorld(D, T, NA, FAR, flyPts) {
     else if (dm < 1050 && rnd() < .08) t = 6;
     if (z > MOSQ[1] + 300 && abs(x - MOSQ[0]) < 700 && t >= 6 && t <= 8) t = CITY_LOW[(rnd() * 4) | 0];
     const sc = rr(.82, 1.04), yaw = -ang + (rnd() < .5 ? 0 : PI / 2) + rr(-.025, .025);
-    solid(26 + t * 2 + (rnd() < .5 ? 1 : 0), x, fh(x, z) - .5, z, sc, yawQ(yaw), 17, rnd(), 0, CITY[t][1] * sc);
+    const near = hypot(x, (z + 575) * .8) < 1000;
+    solid(26 + t * 2 + (rnd() < .5 ? 1 : 0) + (near ? CITY.length * 2 : 0), x, fh(x, z) - .5, z, sc, yawQ(yaw), 17, rnd(), 0, CITY[t][1] * sc);
    }
   }
   // far palm groves and gardens

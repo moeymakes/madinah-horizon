@@ -346,7 +346,8 @@ fn kar(c: vec3f) -> vec4f { let w = 1. / (1. + max(c.r, max(c.g, c.b))); return 
 const S_G = /*wgsl*/`
 // pvp: last frame's unjittered view-projection; jit: xy this frame's projection jitter in NDC, z history reset (1), w frame
 // amb: sky light on an up-facing white surface, integrated from the sky-view LUT at load
-struct G { vp: mat4x4f, sm: mat4x4f, cam: vec4f, right: vec4f, up: vec4f, fwd: vec4f, sun: vec4f, res: vec4f, mis: vec4f, pvp: mat4x4f, jit: vec4f, amb: vec4f };
+// smc: the city's light matrix
+struct G { vp: mat4x4f, sm: mat4x4f, cam: vec4f, right: vec4f, up: vec4f, fwd: vec4f, sun: vec4f, res: vec4f, mis: vec4f, pvp: mat4x4f, jit: vec4f, amb: vec4f, smc: mat4x4f };
 const SUNC = vec3f(${f3(SUNCP)}); const CLOUDSUN = vec3f(${f3(CLOUDSUN)});
 // sky radiance per unit of the LUT: pi * solar scale, because surfaces here take SUNC as irradiance / pi
 const SKYS = vec3f(${f3(ATM_NT.map((v) => v * ATM_S * PI * (TP.night ? .45 : 1)))});
@@ -383,6 +384,15 @@ const S_B = S_G + W_ATMC + /*wgsl*/`
 @group(0) @binding(8) var tF: texture_2d<f32>;
 @group(0) @binding(9) var tSV: texture_2d<f32>;
 @group(0) @binding(10) var tMS: texture_2d<f32>;
+@group(0) @binding(11) var tShC: texture_depth_2d;
+// beyond the near field: the city shadow map (2x2 taps), 1 outside its box
+fn shadowC(p: vec3f) -> f32 {
+  let s = g.smc * vec4f(p, 1.); let uv = vec2f(s.x * .5 + .5, .5 - s.y * .5);
+  let inb = step(abs(s.x), .995) * step(abs(s.y), .995);
+  let e = .7 / ${LV ? 2048 : 4096}.; var a = 0.;
+  for (var k = 0; k < 4; k++) { a += textureSampleCompareLevel(tShC, sS, uv + vec2f(f32(k & 1) - .5, f32(k >> 1) - .5) * e, s.z - .00015); }
+  return mix(1., a * .25, inb);
+}
 // sky radiance in direction rd, from the sky-view LUT; at night the city's light dome glows low on the horizon
 fn skyCol(rd: vec3f, sun: vec3f) -> vec3f {
   var c = textureSampleLevel(tSV, sC, svUV(rd), 0.).rgb * SKYS;
@@ -419,13 +429,13 @@ fn nearK(p: vec3f) -> f32 { return 1. - ss(NEARH - 12., NEARH - 2., max(abs(p.x)
 fn shUV(p: vec3f) -> vec3f { let s = g.sm * vec4f(p, 1.); return vec3f(s.x * .5 + .5, .5 - s.y * .5, s.z - .0004); }
 fn shadow1(p: vec3f) -> f32 {
   let s = shUV(p);
-  return mix(1., textureSampleCompareLevel(tSh, sS, s.xy, s.z), nearK(p));
+  return mix(shadowC(p), textureSampleCompareLevel(tSh, sS, s.xy, s.z), nearK(p));
 }
 fn shadow9(p: vec3f) -> f32 {
   if (LOW) { return shadow1(p); }
   let s = shUV(p); let e = 1.4 / ${SHADOW}.; var a = 0.;
   for (var x = -1; x <= 1; x++) { for (var y = -1; y <= 1; y++) { a += textureSampleCompareLevel(tSh, sS, s.xy + vec2f(f32(x), f32(y)) * e, s.z); } }
-  return mix(1., a / 9., nearK(p));
+  return mix(shadowC(p), a / 9., nearK(p));
 }
 // r = openness, g = skylight; outside the near field everything is open sky
 fn vol(p: vec3f) -> vec2f {
@@ -551,7 +561,19 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     let tone = select(select(vec3f(.70, .69, .66), vec3f(.74, .69, .60), mat == 7), ct, mat == 17);
     // plaster is never one flat white: trowel marks, patched render and broad dust stains give the eye something to read in full sun
     alb = tone * (.8 + .3 * B.h) * (.9 + .16 * C.c) * mix(1., .84, ss(.5, .82, A.c)) * (1. - .06 * ss(.4, .7, F.h) * ss(30., 5., dist));
-    if (mat == 17) {
+    // near-city parts tagged in the vertex aux: carved wood, metal and plastic, bare concrete
+    let sub = i.ao;
+    if (mat == 17 && sub < -.1) {
+      if (sub > -.4) {
+        let lat = step(.3, fract(fu * 5.)) * step(.3, fract(fv * 5.));
+        alb = mix(vec3f(.22, .13, .07), vec3f(.36, .22, .12), hs(sd * 19.)) * (.55 + .45 * lat) * (.85 + .3 * C.c); gloss = .15;
+      } else if (sub > -.65) {
+        alb = mix(vec3f(.62, .62, .6), vec3f(.48, .5, .52), hs(floor(fu * 2.) + sd)) * (.85 + .2 * B.h) * (1. - .2 * step(.7, fract(fv * 9.)) * wall); gloss = .4;
+      } else {
+        alb = tone * vec3f(.9, .9, .92) * (.82 + .25 * B.h) * mix(.78, 1., ss(-.05, .2, fract(fv / 3.3)));
+      }
+      alb *= mix(.75, 1., ss(0., 3., fv + C.h));
+    } else if (mat == 17) {
       let bw = mix(2.6, 4.6, hs(sd * 11.)); let ww = mix(.18, .34, hs(sd * 13.));
       let wx = fract(fu / bw); let wy = fract(fv / 3.3); let flr = floor(fv / 3.3); let bay = floor(fu / bw);
       let win = step(.5 - ww, wx) * step(wx, .5 + ww) * step(.3, wy) * step(wy, .74) * step(1., flr) * wall * step(fv, i.m.w - 1.) * wfade * step(.15, hs(bay * 3.1 + flr * 5.7 + sd));
@@ -639,7 +661,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
   ao = select(ao, .5 + .5 * ao, mat >= 5 && mat != 12 && mat != 13);
   ao = select(ao, .35 + .65 * ao, mat == 12 || mat == 13);
   ao = select(ao, .25 + .75 * ao, mat == 2 || (mat <= 1 && lvN > .5));
-  let sh = select(shadow9(i.wp + n0 * (.45 + dist * .003) + g.sun.xyz * .25), sat(i.ao * 1.6 - .3), far);
+  let sh = select(shadow9(i.wp + n0 * (.45 + dist * .003) + g.sun.xyz * .25), sat(i.ao * 1.6 - .3) * shadowC(i.wp + n0 * 1.5 + g.sun.xyz), far);
   let E = SUNC * sh;
   let ndl = sat(dot(N, L));
   let am = amb(N, vv.y) * ao;
