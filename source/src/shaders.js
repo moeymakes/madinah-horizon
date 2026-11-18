@@ -387,7 +387,8 @@ const S_B = S_G + W_ATMC + /*wgsl*/`
 @group(0) @binding(11) var tShC: texture_depth_2d;
 // beyond the near field: the city shadow map (2x2 taps), 1 outside its box
 fn shadowC(p: vec3f) -> f32 {
-  let s = g.smc * vec4f(p, 1.); let uv = vec2f(s.x * .5 + .5, .5 - s.y * .5);
+  // a 9 degree sun spans ~4 m of depth per texel on flat roofs: look up from 2.5 m toward the sun to avoid acne
+  let s = g.smc * vec4f(p + g.sun.xyz * 2.5, 1.); let uv = vec2f(s.x * .5 + .5, .5 - s.y * .5);
   let inb = step(abs(s.x), .995) * step(abs(s.y), .995);
   let e = .7 / ${LV ? 2048 : 4096}.; var a = 0.;
   for (var k = 0; k < 4; k++) { a += textureSampleCompareLevel(tShC, sS, uv + vec2f(f32(k & 1) - .5, f32(k >> 1) - .5) * e, s.z - .00015); }
@@ -520,7 +521,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
   // window grid fades before it can sparkle (derivatives must be taken outside the material branches)
   let wfade = 1. - ss(.25, .6, fwidth(fu / 3.4) + fwidth(fv / 3.3));
   // rooms behind the glass show while a window is a dozen pixels or more across
-  let ifade = 1. - ss(.08, .25, fwidth(fu) + fwidth(fv));
+  let ifade = 1. - ss(.15, .5, fwidth(fu) + fwidth(fv));
   if (mat <= 1) {
     let lava = mix(fm.r, nm.g, nk); let gran = mix(fm.g, nm.b, nk); let wadi = nm.r * nk; let irr = nm.a * nk; let city = fm.b * (1. - nk);
     alb = mix(vec3f(.52, .34, .19), vec3f(.64, .45, .27), sat(A.c * .9 + Lg.a * .9 - .55)) * (.7 + .45 * mix(B.h, Lg.b, .45)) * (.84 + .32 * C.c);
@@ -590,7 +591,8 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
       let win = step(.5 - ww, wx) * step(wx, .5 + ww) * step(.3, wy) * step(wy, .74) * step(1., flr) * wall * step(fv, i.m.w - 1.) * wfade * step(.15, hs(bay * 3.1 + flr * 5.7 + sd));
       let lit = step(LITF, hs(flr * 13.1 + bay * 7.7 + sd * 31.));
       let frame = step(.5 - ww - .05, wx) * step(wx, .5 + ww + .05) * step(.25, wy) * step(wy, .79) * step(1., flr) * wall * step(fv, i.m.w - 1.) * wfade * (1. - win);
-      alb = mix(alb, alb * 1.12 + .03, frame);
+      // window frames: white uPVC on some buildings, dark aluminium on others
+      alb = mix(alb, select(alb * 1.12 + .03, vec3f(.2, .2, .21), hs(sd * 37.) > .5), frame);
       let roshan = step(.8, hs(sd * 19.)) * step(.5, hs(bay * 7.3 + sd * 3.)) * step(1., flr) * wall * wfade * step(.12, wy) * step(wy, .9) * step(abs(wx - .5), ww + .12);
       alb = mix(alb, vec3f(.30, .18, .10) * (.75 + .5 * step(.5, fract(fu * 3.))), roshan);
       alb = mix(alb, vec3f(.05, .055, .06), win * .9 * (1. - roshan));
@@ -623,13 +625,16 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
       if (tw <= tu && tw <= tv) { rc = wallC * mix(1., mix(.35, .7, hs(rid + 11.)), step(hp.y, .85) * step(.2, fract(hp.x / bw + hs(rid)))); }
       else if (tv < tu) { rc = select(vec3f(.72, .7, .66), mix(vec3f(.22, .15, .1), vec3f(.32, .3, .28), hs(rid + 13.)), rr3.y < 0.); }
       let inner = rc * mix(1., .4, hp.z / dep);
-      let lamp = vec3f(1., .72, .45) * LIGHTS * .17 * (1. + .8 * ss(2.2, 3.3, hp.y)) * mix(1., .6, hp.z / dep);
-      var room = inner * (g.amb.xyz * .3 + lamp * lit);
+      let lamp = mix(mix(vec3f(1., .72, .45), vec3f(1., .9, .78), step(.55, hs(rid + 29.))), vec3f(.72, .84, 1.), step(.88, hs(rid + 31.))) * LIGHTS * .17 * (1. + .8 * ss(2.2, 3.3, hp.y)) * mix(1., .6, hp.z / dep);
+      var room = inner * (g.amb.xyz * .55 + lamp * lit);
       // curtains drawn part way across some windows, glowing when the room is lit
       let cur = step(.4, hs(rid + 17.)) * hs(rid + 19.) * .8;
       room = mix(room, mix(vec3f(.62, .55, .45), vec3f(.5, .52, .56), hs(rid + 23.)) * (g.amb.xyz * .2 + lamp * lit * .9), step(1. - cur, abs(wx - .5) / ww));
       emi = (room * ifade + vec3f(1., .62, .30) * .15 * lit * LIGHTS * (1. - ifade)) * win * (1. - roshan);
-      alb = mix(alb, alb * mix(vec3f(.55, .52, .5), vec3f(.4, .37, .34), dAge), ss(.6, .9, on.y));
+      // flat roofs: bare concrete, tar sheeting or white membrane, smooth rather than plastered, older ones darker
+      let rh = hs(sd * 41.);
+      let roof = select(select(vec3f(.44, .42, .38), vec3f(.15, .145, .14), rh > .55), vec3f(.6, .58, .54), rh > .85) * (.92 + .12 * C.c) * mix(1., .72, dAge);
+      alb = mix(alb, roof, ss(.6, .9, on.y));
       gloss = mix(.08, .55, win);
     } else {
       let bw = select(4.2, 6.5, mat == 7);
@@ -648,7 +653,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
       let band = ss(.92, .97, fract(fv / select(7.9, 16.6, mat == 7))) * wall;
       alb = mix(alb, alb * vec3f(.92, .84, .7), band * .6);
     }
-    bump = .04;
+    bump = .04 * (1. - ss(.6, .9, on.y));
     emi += alb * mix(.11, .03, ss(0., 14., fv)) * NIGHT * f32(mat != 17);
   } else if (mat == 8) {
     let rib = ss(.4, .5, abs(fract(atan2(i.op.z, i.op.x) / TAU * 24.) - .5)) * .3;
