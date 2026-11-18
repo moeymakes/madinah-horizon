@@ -1064,8 +1064,8 @@ fn fastAcos(x: f32) -> f32 { let a = abs(x); let r = (-.156583 * a + 1.570796) *
       // a sample that raises the horizon hides sky and shows its own surface instead: it adds the light it
       // reflects (last frame's image) over the arc it newly covers, bounded by the AO radius
       let c0 = mix(lo0, dot(da / la, V), sat(la * fmul + fadd)); let c1 = mix(lo1, dot(db / lb, V), sat(lb * fmul + fadd));
-      if (c0 > h0) { gi += min(textureLoad(tPrev, clamp(a, vec2i(0), vec2i(g.res.xy) - 1), 0).rgb, vec3f(4.)) * pl * max(arcI(n + clamp(fastAcos(h0) - n, -1.570796, 1.570796), n, cn) - arcI(n + clamp(fastAcos(c0) - n, -1.570796, 1.570796), n, cn), 0.); h0 = c0; }
-      if (c1 > h1) { gi += min(textureLoad(tPrev, clamp(b, vec2i(0), vec2i(g.res.xy) - 1), 0).rgb, vec3f(4.)) * pl * max(arcI(n + clamp(-fastAcos(h1) - n, -1.570796, 1.570796), n, cn) - arcI(n + clamp(-fastAcos(c1) - n, -1.570796, 1.570796), n, cn), 0.); h1 = c1; }
+      if (c0 > h0) { gi += min(textureLoad(tPrev, clamp(a, vec2i(0), vec2i(g.res.xy) - 1), 0).rgb, vec3f(2.)) * pl * max(arcI(n + clamp(fastAcos(h0) - n, -1.570796, 1.570796), n, cn) - arcI(n + clamp(fastAcos(c0) - n, -1.570796, 1.570796), n, cn), 0.); h0 = c0; }
+      if (c1 > h1) { gi += min(textureLoad(tPrev, clamp(b, vec2i(0), vec2i(g.res.xy) - 1), 0).rgb, vec3f(2.)) * pl * max(arcI(n + clamp(-fastAcos(h1) - n, -1.570796, 1.570796), n, cn) - arcI(n + clamp(-fastAcos(c1) - n, -1.570796, 1.570796), n, cn), 0.); h1 = c1; }
     }
     let a0 = n + clamp(-fastAcos(h1) - n, -1.570796, 1.570796);
     let a1 = n + clamp(fastAcos(h0) - n, -1.570796, 1.570796);
@@ -1104,7 +1104,7 @@ const W_TAA = S_G + W_FS + /*wgsl*/`
 @group(0) @binding(6) var tH: texture_2d<f32>;
 @group(0) @binding(7) var tGI: texture_2d<f32>;
 // the gather only reaches the AO radius, so it under-counts the bounce from larger nearby surfaces
-const GI = 3.;
+const GI = 1.5;
 fn tm(c: vec3f) -> vec3f { return c / (1. + dot(c, LUMA)); }
 fn itm(c: vec3f) -> vec3f { return c / max(1. - dot(c, LUMA), 1e-3); }
 // depth-aware upsample of the half-res AO (x) and bounce (yzw)
