@@ -249,7 +249,7 @@ fn aerialAt(c: vec3f, cam: vec3f, wp: vec3f, sun: vec3f) -> vec3f {
   let od = select((1. - exp(-k * d)) / k, d, abs(k) < 1e-7) * exp(-max(cam.y, -30.) / HSCALE);
   let k2 = rd.y / 70.;
   let od2 = select((1. - exp(-k2 * d)) / k2, d, abs(k2) < 1e-7) * exp(-max(cam.y, -30.) / 70.);
-  let T = exp(-BETA * od - vec3f(1.5e-4, 1.6e-4, 1.75e-4) * od2);
+  let T = exp(-BETA * od - vec3f(.8e-4, .86e-4, .95e-4) * od2);
   let ins = mix(skyCol(normalize(vec3f(rd.x, max(rd.y, 0.) * .3 + .012, rd.z)), sun), FARBLUE, ss(900., 6000., d) * .55);
   return c * T + ins * (1. - T);
 }
@@ -373,7 +373,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     let marble = vec3f(.86, .84, .80) * (1. - .16 * tile) * mix(1., .9, bandM) * (.96 + .06 * B.c);
     let street = mix(vec3f(.36, .35, .35) * (.9 + .15 * C.c), vec3f(.64, .60, .54) * (.9 + .12 * B.c), ss(.4, .65, Lg.a));
     alb = mix(alb, mix(street, marble, ss(.9, .97, city)), ss(.05, .2, city));
-    emi = mix(vec3f(1., .55, .25) * .035 * (.4 + .6 * ss(.4, .7, Lg.a)), vec3f(1., .86, .66) * (.025 + .11 * ss(.5, .1, length(fract(i.wp.xz / 24.) - .5))), ss(.9, .97, city)) * ss(.05, .2, city) * NIGHT;
+    emi = mix(vec3f(1., .55, .25) * .035 * (.4 + .6 * ss(.4, .7, Lg.a)), vec3f(1., .86, .66) * (.02 + .07 * ss(.5, .1, length(fract(i.wp.xz / 24.) - .5))), ss(.9, .97, city)) * ss(.05, .2, city) * NIGHT;
     alb = mix(alb, mix(mix(vec3f(.09, .075, .065), vec3f(.18, .135, .10), A.h) * (.7 + .6 * B.c), vec3f(.42, .30, .19), ss(.6, .8, B.c) * .4), lava * (1. - nk) * .8);
     alb *= mix(1., .6 + .8 * F.h, fk);
     bump = select(1.3, mix(.8, .2, ss(.05, .2, city)), far); gloss = mix(.03, .16, lava * (1. - flt)) * ss(120., 20., dist);
@@ -395,8 +395,9 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
   } else if (mat == 6 || mat == 7 || mat == 17) {
     // stucco and stone: white (6), cream (7), mixed city buildings (17) with windows by floor
     let hh = hs(sd * 3.7);
-    let ct = select(select(select(select(vec3f(.72, .62, .48), vec3f(.62, .51, .39), hh > .3), vec3f(.74, .72, .67), hh > .55), vec3f(.60, .44, .30), hh > .75), vec3f(.50, .48, .45), hh > .9);
-    let tone = select(select(vec3f(.82, .80, .76), vec3f(.88, .82, .72), mat == 7), ct, mat == 17);
+    let ct = select(select(select(select(select(vec3f(.60, .51, .38), vec3f(.49, .40, .30), hh > .25), vec3f(.66, .63, .57), hh > .45), vec3f(.52, .38, .27), hh > .62), vec3f(.42, .40, .38), hh > .78), vec3f(.70, .67, .61), hh > .9);
+    // real whitewash and pale stone reflect .6-.75 of the light, not .85+; brighter washes every sunlit wall to flat white
+    let tone = select(select(vec3f(.70, .69, .66), vec3f(.74, .69, .60), mat == 7), ct, mat == 17);
     alb = tone * (.86 + .2 * B.h) * (.94 + .1 * C.c);
     if (mat == 17) {
       let bw = mix(2.6, 4.6, hs(sd * 11.)); let ww = mix(.18, .34, hs(sd * 13.));
@@ -413,7 +414,13 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
       alb = mix(alb, alb * vec3f(.42, .4, .38), shop * step(fv, 2.5) * step(.15, fract(fu / 4.)));
       alb = mix(alb, mix(vec3f(.15, .32, .22), vec3f(.55, .16, .12), step(.5, hs(sd * 29.))), awn);
       alb *= 1. - .1 * ss(.06, .0, abs(fract(fv / 3.3))) * wall * step(1., flr) * wfade;
-      alb *= mix(.82, 1., ss(0., 6., fv));
+      alb *= mix(.72, 1., ss(0., 3.5, fv + 1.5 * C.h));
+      // grime washed down from the window sills, strongest just below each opening
+      let streak = ss(.5, .9, hs(floor(fu * 2.3) * 7.1 + sd * 3.) * (.7 + .6 * B.h)) * ss(.3, .0, wy) * step(1., flr) * wall * wfade;
+      alb *= 1. - .22 * streak * (.6 + .4 * hs(bay * 5.1 + sd));
+      // the window reveal: the lintel shades the top of the opening, the sill catches light below it
+      let lint = step(.5 - ww - .05, wx) * step(wx, .5 + ww + .05) * ss(.66, .74, wy) * step(wy, .79) * step(1., flr) * wall * wfade;
+      alb = mix(alb, alb * .45, lint * .7);
       alb = mix(alb, alb * vec3f(.82, .8, .78), (1. - wfade) * wall * .5);
       emi = vec3f(1., .62, .30) * .9 * win * lit * LIGHTS;
       alb = mix(alb, alb * vec3f(.5, .47, .45), ss(.6, .9, on.y));
@@ -431,12 +438,12 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
       emi = vec3f(1., .7, .4) * (.04 * a1i + .07 * a2) * step(.5, i.m.w) * LIGHTS;
       gloss = mix(.08, .5, a2);
       let seam = (1. - ss(.0, .04, abs(fract(i.op.x / 12.) - .5) * 2. - .9) * ss(.0, .04, abs(fract(i.op.z / 12.) - .5) * 2. - .9));
-      alb = mix(alb, vec3f(.84, .78, .68) * (1. - .2 * seam) * (.9 + .2 * B.c), ss(.6, .9, on.y) * f32(mat == 7));
+      alb = mix(alb, vec3f(.62, .58, .51) * (1. - .25 * seam) * (.85 + .3 * B.c), ss(.6, .9, on.y) * f32(mat == 7));
       let band = ss(.92, .97, fract(fv / select(7.9, 16.6, mat == 7))) * wall;
       alb = mix(alb, alb * vec3f(.92, .84, .7), band * .6);
     }
     bump = .04;
-    emi += alb * .3 * NIGHT * f32(mat != 17);
+    emi += alb * .15 * NIGHT * f32(mat != 17);
   } else if (mat == 8) {
     let rib = ss(.4, .5, abs(fract(atan2(i.op.z, i.op.x) / TAU * 24.) - .5)) * .3;
     alb = vec3f(.06, .30, .17) * (1. - rib) * (.92 + .16 * B.h); gloss = .5; bump = .05; emi = alb * 1.2 * NIGHT;
@@ -445,7 +452,9 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
   } else if (mat == 10) {
     alb = vec3f(1., .70, .28); gloss = .9; metal = 1.; bump = 0.; emi = alb * 1.5 * NIGHT;
   } else if (mat == 11) {
-    alb = vec3f(.74, .73, .70) * (.92 + .1 * B.h); gloss = .12; bump = .1; emi = vec3f(1., .82, .6) * .25 * NIGHT;
+    // umbrella fabric: off-white membrane in eight panels, the seams a shade darker so the canopy reads as a shape
+    let pan = abs(fract(atan2(i.op.z, i.op.x) / TAU * 8.) - .5);
+    alb = vec3f(.66, .65, .62) * (.92 + .1 * B.h) * (1. - .16 * ss(.06, .0, pan)); gloss = .12; bump = .1; emi = vec3f(1., .82, .6) * .12 * NIGHT;
   } else if (mat == 12 || mat == 18) {
     // date palm trunk: spiral of cut leaf bases makes a diamond crosshatch
     let ang = atan2(i.op.z - sd * 37., i.op.x - sd * 37.) / TAU;
@@ -696,7 +705,7 @@ const W_RAYS = S_G + W_FS + /*wgsl*/`
   let mu = dot(rd, sx);
   let gg = .72;
   let ph = (1. - gg * gg) / pow(1. + gg * gg - 2. * gg * mu, 1.5) * .07 + .1;
-  return vec4f(min(SUNC * vec3f(1., .84, .62) * acc * dt * .015 * ph * g.mis.y, vec3f(20.)), zl);
+  return vec4f(min(SUNC * vec3f(1., .84, .62) * acc * dt * .011 * ph * g.mis.y, vec3f(20.)), zl);
 }
 `;
 // depth-aware 3x3 blur of the half-res shafts (hides the sampling dither)
@@ -746,7 +755,7 @@ fn tmap(x: vec3f) -> vec3f { return clamp((x * (2.51 * x + .03)) / (x * (2.43 * 
   c *= 1. - dot(q, q) * .45;
   c = tmap(c);
   let l0 = dot(c, vec3f(.2126, .7152, .0722));
-  let l = mix(l0, l0 * l0 * (3. - 2. * l0), .4);
+  let l = mix(l0, l0 * l0 * (3. - 2. * l0), .55);
   c *= l / max(l0, 1e-4);
   c = mix(vec3f(l), c, 1.04) + vec3f(.006, .003, 0.);
   c = pow(max(c, vec3f(0.)), vec3f(1. / 2.2));
