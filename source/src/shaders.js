@@ -652,12 +652,12 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
       if (tw <= tu && tw <= tv) { rc = wallC * mix(1., mix(.35, .7, hs(rid + 11.)), step(hp.y, .85) * step(.2, fract(hp.x / bw + hs(rid)))); }
       else if (tv < tu) { rc = select(vec3f(.72, .7, .66), mix(vec3f(.22, .15, .1), vec3f(.32, .3, .28), hs(rid + 13.)), rr3.y < 0.); }
       let inner = rc * mix(1., .4, hp.z / dep);
-      let lamp = mix(mix(vec3f(1., .72, .45), vec3f(1., .9, .78), step(.55, hs(rid + 29.))), vec3f(.72, .84, 1.), step(.88, hs(rid + 31.))) * LIGHTS * .12 * (1. + .8 * ss(2.2, 3.3, hp.y)) * mix(1., .6, hp.z / dep);
+      let lamp = mix(mix(vec3f(1., .72, .45), vec3f(1., .9, .78), step(.55, hs(rid + 29.))), vec3f(.72, .84, 1.), step(.88, hs(rid + 31.))) * LIGHTS * .17 * (1. + .8 * ss(2.2, 3.3, hp.y)) * mix(1., .6, hp.z / dep);
       var room = inner * (g.amb.xyz * .55 + lamp * lit);
       // curtains drawn part way across some windows, glowing when the room is lit
       let cur = step(.4, hs(rid + 17.)) * hs(rid + 19.) * .8;
       room = mix(room, mix(vec3f(.62, .55, .45), vec3f(.5, .52, .56), hs(rid + 23.)) * (g.amb.xyz * .2 + lamp * lit * .9), step(1. - cur, abs(wx - .5) / ww));
-      emi = (room * ifade + vec3f(1., .62, .30) * .1 * lit * LIGHTS * (1. - ifade)) * win * (1. - roshan);
+      emi = (room * ifade + vec3f(1., .62, .30) * .15 * lit * LIGHTS * (1. - ifade)) * win * (1. - roshan);
       // flat roofs: bare concrete, tar sheeting or white membrane, smooth rather than plastered, older ones darker
       let rh = hs(sd * 41.);
       let roof = select(select(vec3f(.44, .42, .38), vec3f(.15, .145, .14), rh > .55), vec3f(.6, .58, .54), rh > .85) * (.92 + .12 * C.c) * mix(1., .72, dAge);
