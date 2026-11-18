@@ -4,6 +4,14 @@ Built with the `worldsmith` skill (`~/.shared/skills/worldsmith`). Brief: `promp
 
 ## State (update after every phase)
 
+- Realism stage 3 STOPPED with a gate report (2026-11-18 ~21:30 AEDT), not shipped; live stays at stage 2.
+  On branch `realism-s1`: real Uhud/Ayr relief from Copernicus GLO-30 (3551cdb, data in src/data.js via
+  tools/pack-data.py; downloads in /home/moey/Dev/research/madinah-horizon-data/, approved by Moey for all worlds).
+  Gate (verify/s3-dem-*): 0 errors 3 times x 3 levels, menu ok, GPU 7.87 / p99 12.01 ms, 136.5 KB; crop clip .07,
+  flatwhite .90; FAIL bright detail 64.6 vs stage 2's 66.3 (-2.5%, dawn pose 5 54 -> 49); critic still major and
+  still calls Uhud generic. The OpenStreetMap street city was built, critic-checked three times and reverted
+  (streets sit in long low-sun shadows and read as mud from the air; -6% bright detail). Photo colour calibration
+  not attempted (would need reference photos: not approved).
 - Realism stage 2 SHIPPED 2026-11-18 ~16:45 AEDT (main 666dcce, live byte-identical; GPU 8.44 / p99 12.46 ms; 0 errors
   3 times x 3 levels; critic still major on out-of-scope items: grid city layout, strap-like fronds, Uhud relief,
   flat canal water; rock interior visible in flight frame 10 predates stage 2). Next: stage 3 (real DEM terrain,
