@@ -4,6 +4,21 @@ Built with the `worldsmith` skill (`~/.shared/skills/worldsmith`). Brief: `promp
 
 ## State (update after every phase)
 
+- Realism stage 1 IN PROGRESS on branch `realism-s1` (started 2026-11-18 13:59 AEDT). Captures in
+  verify/s1-<step>-t<0|1|2>/ (1920x1080), helper scripts in the session scratchpad (cap.sh, sheet.py).
+  - Baseline (main c0639ab), city crop `--crop 0,.62,1,1` poses 5+6, 3 times: clip .59, flatwhite 4.22,
+    brightdetail 52.28 (gate: >= 60.1); GPU 6.16 / p99 7.46 ms at 2560x1440 High.
+  - 1 DONE af664e0: GTAO (half res, ambient share only via an r8 MRT) + TAA (half-pixel Halton jitter,
+    Catmull-Rom history, variance clip) + clamped sharpen; off on Low. brightdetail 49.96 (TAA removes
+    aliasing the metric counted), GPU 6.23 ms.
+  - 2 DONE 83eccb1: Hillaire sky LUTs (transmittance, MS, sky-view) + CPU sun transmittance + LUT sky
+    irradiance + closed-form aerial perspective; golden expo .64, dawn .8; night uplights fade with height.
+    Crop: clip .29, flatwhite 1.96, brightdetail 60.30 (+15.3%); GPU 6.76 / p99 8.41.
+    Open: golden pose 5 flatwhite 4.4 (sky glow beside the sun + sun-facing Quba wall), dawn pose 5 3.8,
+    night pose 5 3.3; night pose 6 clip 1.42 (lit windows, feature 4 should fix).
+  - Next: 3 building massing (world.js CITY meshes), 4 interior-mapped windows, 5 district tint, then gates.
+  - Capture flights with `--flight-key KeyP` (F toggles flying in this world).
+
 - Phase: SHIPPED to GitHub Pages (https://moeymakes.github.io/madinah-horizon/) at Moey's request; iteration 14 adds city/facade/Masjid detail, smoother dynamic resolution, lava pulled out of the city
 - Last good capture: verify/iter-14 (local only, verify/ is gitignored); minified index.html: 0 errors at High and Low
 - Perf (iter-14, RTX 3070 shared with two other builds at ~29%, 2560x1440, 60 s flight): GPU avg 4.93 ms, p99 6.51, max 9.42
