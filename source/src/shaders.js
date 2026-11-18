@@ -566,7 +566,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     let hh = hs(sd * 3.7);
     let ct = select(select(select(select(select(vec3f(.60, .51, .38), vec3f(.49, .40, .30), hh > .25), vec3f(.66, .63, .57), hh > .45), vec3f(.52, .38, .27), hh > .62), vec3f(.42, .40, .38), hh > .78), vec3f(.70, .67, .61), hh > .9);
     // real whitewash and pale stone reflect .6-.75 of the light, not .85+; brighter washes every sunlit wall to flat white
-    let tone = select(select(vec3f(.70, .69, .66), vec3f(.74, .69, .60), mat == 7), ct, mat == 17);
+    let tone = select(select(vec3f(.66, .65, .62), vec3f(.74, .69, .60), mat == 7), ct, mat == 17);
     // plaster is never one flat white: trowel marks, patched render and broad dust stains give the eye something to read in full sun
     alb = tone * (.8 + .3 * B.h) * (.9 + .16 * C.c) * mix(1., .84, ss(.5, .82, A.c)) * (1. - .06 * ss(.4, .7, F.h) * ss(30., 5., dist));
     if (mat == 17) {
@@ -646,7 +646,8 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
       alb = mix(alb, alb * vec3f(1.08, 1.02, .94), (a1 - a1i) * step(.5, i.m.w));
       alb = mix(alb, inner, a1i * step(.5, i.m.w));
       alb = mix(alb, vec3f(.05, .05, .06), a2 * .9 * step(.5, i.m.w));
-      emi = vec3f(1., .7, .4) * (.04 * a1i + .07 * a2) * step(.5, i.m.w) * LIGHTS;
+      // lamps hang high in the openings: brightest at the top, falling to the floor
+      emi = vec3f(1., .7, .4) * (.022 * a1i + .035 * a2) * step(.5, i.m.w) * LIGHTS * (.35 + .9 * ss(.5, select(4., 9., mat == 7), fv));
       gloss = mix(.08, .5, a2);
       let seam = (1. - ss(.0, .04, abs(fract(i.op.x / 12.) - .5) * 2. - .9) * ss(.0, .04, abs(fract(i.op.z / 12.) - .5) * 2. - .9));
       alb = mix(alb, vec3f(.62, .58, .51) * (1. - .25 * seam) * (.85 + .3 * B.c), ss(.6, .9, on.y) * f32(mat == 7));
