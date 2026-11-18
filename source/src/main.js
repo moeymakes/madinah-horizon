@@ -46,7 +46,7 @@ const tDetail = tex(1024, 1024, 'rgba8unorm', TU.RENDER_ATTACHMENT | TU.TEXTURE_
 const tVol = tex(NX / 2, NY / 2, 'rg8unorm', TU.TEXTURE_BINDING | TU.COPY_DST, { d: NZ / 2 });
 const tNear = tex(NX, NZ, 'rgba8unorm', TU.TEXTURE_BINDING | TU.COPY_DST);
 const tFar = tex(FN, FN, 'rgba8unorm', TU.TEXTURE_BINDING | TU.COPY_DST);
-const tRoad = tex(1024, 1024, 'r8unorm', TU.TEXTURE_BINDING | TU.COPY_DST);
+const tRoad = tex(1024, 1024, 'rg8unorm', TU.TEXTURE_BINDING | TU.COPY_DST);
 
 // ---------------------------------------------------------------- atmosphere LUTs (once: the sun does not move)
 const tTr = tex(256, 64, HDR, TU.RENDER_ATTACHMENT | TU.TEXTURE_BINDING), tMSc = tex(32, 32, HDR, TU.RENDER_ATTACHMENT | TU.TEXTURE_BINDING);
@@ -308,7 +308,7 @@ const BIRD = meshes[NSOLID];
 Q.writeTexture({ texture: tVol }, Wd.volD, { bytesPerRow: NX, rowsPerImage: NY / 2 }, [NX / 2, NY / 2, NZ / 2]);
 Q.writeTexture({ texture: tNear }, Wd.nm, { bytesPerRow: NX * 4 }, [NX, NZ]);
 Q.writeTexture({ texture: tFar }, Wd.fmap, { bytesPerRow: FN * 4 }, [FN, FN]);
-Q.writeTexture({ texture: tRoad }, Wd.roadMask, { bytesPerRow: 1024 }, [1024, 1024]);
+Q.writeTexture({ texture: tRoad }, Wd.roadMask, { bytesPerRow: 2048 }, [1024, 1024]);
 // mesh distance bands for the near cell stores: trunks, dates, basalt small, basalt large, granite, pebbles
 const CELLD = [400, 400, 400, 80, 110, 400, 400, 45];
 
