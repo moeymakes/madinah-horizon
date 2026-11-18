@@ -509,6 +509,45 @@ function makeWorld(D, T, NA, FAR, flyPts) {
     solid(13, MOSQ[0] + lx * MS, my, MOSQ[1] + lz * MS, MS * .82, Q0, 11, rnd(), 0, 0);
   }
 
+  // --- real streets and hotel sites around the Haram (OpenStreetMap, data.js), metres from the mosque centre
+  const ROADR = 1300, RM = 1024, RMS = 2800 / RM, roadMask = new Uint8Array(RM * RM), segs = [], segB = new Map(), hotels = [];
+  {
+    const b = atob(OSM_HARAM), u8 = (i) => b.charCodeAt(i), s8 = (i) => (u8(i) << 24) >> 24, s16 = (i) => ((u8(i) | (u8(i + 1) << 8)) << 16) >> 16;
+    let i = 0;
+    for (;;) {
+      const w = u8(i), n = u8(i + 1); i += 2; if (!w && !n) break;
+      let x = s16(i), z = s16(i + 2); i += 4;
+      for (let k = 1; k < n; k++) {
+        const px = x, pz = z, dx = s8(i);
+        if (dx === -128) { x = s16(i + 1); z = s16(i + 3); i += 5; } else { x += dx; z += s8(i + 1); i += 2; }
+        const sg = [MOSQ[0] + px, MOSQ[1] + pz, MOSQ[0] + x, MOSQ[1] + z, w]; segs.push(sg);
+        for (let gx = floor(min(sg[0], sg[2]) / 40); gx <= floor(max(sg[0], sg[2]) / 40); gx++) for (let gz = floor(min(sg[1], sg[3]) / 40); gz <= floor(max(sg[1], sg[3]) / 40); gz++) {
+          const key = gx * 4096 + gz; if (!segB.has(key)) segB.set(key, []); segB.get(key).push(sg);
+        }
+      }
+    }
+    // the world's plaza is larger than the real one: hotel sites that fall on it are left out
+    for (; i + 7 <= b.length; i += 7) { const hx = s16(i), hz = s16(i + 2); if (abs(hx) > 340 || hz < -440 || hz > 400) hotels.push([MOSQ[0] + hx, MOSQ[1] + hz, u8(i + 4), u8(i + 5), u8(i + 6) / 255 * PI]); }
+    // asphalt mask for the ground shader: 1024^2 over 2.8 km around the mosque, anti-aliased edges
+    for (const [x0, z0, x1, z1, w] of segs) {
+      const ax = (x0 - MOSQ[0]) / RMS + RM / 2, az = (z0 - MOSQ[1]) / RMS + RM / 2, bx = (x1 - MOSQ[0]) / RMS + RM / 2, bz = (z1 - MOSQ[1]) / RMS + RM / 2, r = w / RMS;
+      const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1e-9;
+      for (let py = max(0, floor(min(az, bz) - r - 1)); py <= min(RM - 1, Math.ceil(max(az, bz) + r + 1)); py++) for (let px = max(0, floor(min(ax, bx) - r - 1)); px <= min(RM - 1, Math.ceil(max(ax, bx) + r + 1)); px++) {
+        const t = clamp(((px + .5 - ax) * dx + (py + .5 - az) * dz) / l2, 0, 1), d = hypot(px + .5 - ax - dx * t, py + .5 - az - dz * t);
+        const v = round(clamp(r + .5 - d, 0, 1) * 255), k = px + py * RM; if (v > roadMask[k]) roadMask[k] = v;
+      }
+    }
+  }
+  // nearest street: distance to its edge, its direction, and the unit vector from the street to the point
+  const roadAt = (x, z) => {
+    let best = 1e9, ang = 0, nx = 0, nz = 0;
+    for (let gx = floor(x / 40) - 1; gx <= floor(x / 40) + 1; gx++) for (let gz = floor(z / 40) - 1; gz <= floor(z / 40) + 1; gz++) for (const [x0, z0, x1, z1, w] of segB.get(gx * 4096 + gz) || []) {
+      const dx = x1 - x0, dz = z1 - z0, t = clamp(((x - x0) * dx + (z - z0) * dz) / (dx * dx + dz * dz || 1e-9), 0, 1), d = hypot(x - x0 - dx * t, z - z0 - dz * t) - w;
+      if (d < best) { const ex = x - x0 - dx * t, ez = z - z0 - dz * t, el = hypot(ex, ez) || 1; best = d; ang = atan2(dz, dx); nx = ex / el; nz = ez / el; }
+    }
+    return [best, ang, nx, nz];
+  };
+  const inHotel = (x, z, m) => hotels.some(([hx, hz, w, d, a]) => { const ca = cos(a), sa = sin(a), u = (x - hx) * ca + (z - hz) * sa, v = -(x - hx) * sa + (z - hz) * ca; return abs(u) < w / 2 + m && abs(v) < d / 2 + m; });
   // --- the city: low houses spreading out, hotels close to the Haram, palms along the streets
   rseed(5);
   const streetPalms = [];
@@ -524,10 +563,31 @@ function makeWorld(D, T, NA, FAR, flyPts) {
     if (dm < 650 && rnd() < .45) t = rnd() < .55 ? 6 : rnd() < .88 ? 7 : 8;
     else if (dm < 1050 && rnd() < .08) t = 6;
     if (z > MOSQ[1] + 300 && abs(x - MOSQ[0]) < 700 && t >= 6 && t <= 8) t = CITY_LOW[(rnd() * 4) | 0];
-    const sc = rr(.82, 1.04), yaw = -ang + (rnd() < .5 ? 0 : PI / 2) + rr(-.025, .025);
-    const near = hypot(x, (z + 575) * .8) < 1000;
-    solid(26 + t * 2 + (rnd() < .5 ? 1 : 0) + (near ? CITY.length * 2 : 0), x, fh(x, z) - .5, z, sc, yawQ(yaw), 17, rnd(), 0, CITY[t][1] * sc);
+    const sc = rr(.82, 1.04), quarter = rnd() < .5 ? 0 : PI / 2, jit = rr(-.025, .025), v = rnd() < .5 ? 1 : 0, seed = rnd();
+    let yaw = -ang + quarter + jit;
+    // around the Haram the real streets decide: nothing stands on a road or on a hotel site, and blocks face the
+    // nearest street (the random stream is consumed the same way either way, so the rest of the city is unchanged)
+    let bx = x, bz = z;
+    if (hypot(x - MOSQ[0], z - MOSQ[1]) < ROADR) {
+      const [d, a, nx, nz] = roadAt(x, z), need = CITY[t][0] * sc * .5 + 2;
+      if (d < 2 || inHotel(x, z, 10)) continue;
+      // set the block back from the street to its kerb line, facing it
+      if (d < need) { bx += nx * (need - d); bz += nz * (need - d); if (roadAt(bx, bz)[0] < need - 1) continue; }
+      yaw = -a + quarter + jit;
+    }
+    const near = hypot(bx, (bz + 575) * .8) < 1000;
+    solid(26 + t * 2 + v + (near ? CITY.length * 2 : 0), bx, fh(bx, bz) - .5, bz, sc, yawQ(yaw), 17, seed, 0, CITY[t][1] * sc);
    }
+  }
+  // hotels on their real sites: tall blocks along the footprint's long axis
+  rseed(55);
+  for (const [hx, hz, w, d, a] of hotels) {
+    const long = max(w, d), short = min(w, d), t = short > 40 ? 8 : short > 26 ? 7 : 6, sc = clamp(short / CITY[t][0], .7, 1.35);
+    const n = max(1, round(long / (CITY[t][2] * sc))), ax = w >= d ? a : a + PI / 2;
+    for (let k = 0; k < n; k++) {
+      const o = (k - (n - 1) / 2) * long / n, x = hx + cos(ax) * o, z = hz + sin(ax) * o;
+      solid(26 + t * 2 + (k & 1) + CITY.length * 2, x, fh(x, z) - .5, z, sc, yawQ(-ax + (w >= d ? 0 : PI / 2)), 17, rnd(), 0, CITY[t][1] * sc);
+    }
   }
   // far palm groves and gardens
   rseed(6);
@@ -697,7 +757,7 @@ function makeWorld(D, T, NA, FAR, flyPts) {
 
   const sol = { data: [], ranges: [] }; let si = 0;
   for (let m = 0; m < NSOLID; m++) { const a = solids[m] || []; sol.ranges.push([si, a.length / 12]); si += a.length / 12; for (let i = 0; i < a.length; i++) sol.data.push(a[i]); }
-  return { gy, fh, trunks, acacias, worldMeshes, cells: cells.map(packC), big: pack(big), small: pack(small), far: packFlat(farL),
+  return { roadMask, gy, fh, trunks, acacias, worldMeshes, cells: cells.map(packC), big: pack(big), small: pack(small), far: packFlat(farL),
     solids: { data: new Float32Array(sol.data), ranges: sol.ranges }, birds: new Float32Array(birds), motes, volD, nm, fmap };
 }
 const fract = (x) => x - floor(x);

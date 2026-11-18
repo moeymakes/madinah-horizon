@@ -46,6 +46,7 @@ const tDetail = tex(1024, 1024, 'rgba8unorm', TU.RENDER_ATTACHMENT | TU.TEXTURE_
 const tVol = tex(NX / 2, NY / 2, 'rg8unorm', TU.TEXTURE_BINDING | TU.COPY_DST, { d: NZ / 2 });
 const tNear = tex(NX, NZ, 'rgba8unorm', TU.TEXTURE_BINDING | TU.COPY_DST);
 const tFar = tex(FN, FN, 'rgba8unorm', TU.TEXTURE_BINDING | TU.COPY_DST);
+const tRoad = tex(1024, 1024, 'r8unorm', TU.TEXTURE_BINDING | TU.COPY_DST);
 
 // ---------------------------------------------------------------- atmosphere LUTs (once: the sun does not move)
 const tTr = tex(256, 64, HDR, TU.RENDER_ATTACHMENT | TU.TEXTURE_BINDING), tMSc = tex(32, 32, HDR, TU.RENDER_ATTACHMENT | TU.TEXTURE_BINDING);
@@ -81,12 +82,12 @@ const bgl0 = device.createBindGroupLayout({ entries: [
   { binding: 1, visibility: VF, sampler: {} }, { binding: 2, visibility: VF, sampler: {} }, { binding: 3, visibility: VF, sampler: { type: 'comparison' } },
   { binding: 4, visibility: VF, texture: { sampleType: 'depth' } }, { binding: 5, visibility: VF, texture: {} },
   { binding: 6, visibility: VF, texture: { viewDimension: '3d' } }, { binding: 7, visibility: VF, texture: {} }, { binding: 8, visibility: VF, texture: {} },
-  { binding: 9, visibility: VF, texture: {} }, { binding: 10, visibility: VF, texture: {} }, { binding: 11, visibility: VF, texture: { sampleType: 'depth' } }] });
+  { binding: 9, visibility: VF, texture: {} }, { binding: 10, visibility: VF, texture: {} }, { binding: 11, visibility: VF, texture: { sampleType: 'depth' } }, { binding: 12, visibility: VF, texture: {} }] });
 const mkBG0 = (u, sh, shc) => device.createBindGroup({ layout: bgl0, entries: [
   { binding: 0, resource: { buffer: u } }, { binding: 1, resource: sRep }, { binding: 2, resource: sClamp }, { binding: 3, resource: sCmp },
   { binding: 4, resource: sh.createView() }, { binding: 5, resource: tDetail.createView() }, { binding: 6, resource: tVol.createView() },
   { binding: 7, resource: tNear.createView() }, { binding: 8, resource: tFar.createView() },
-  { binding: 9, resource: tSV.createView() }, { binding: 10, resource: tMSc.createView() }, { binding: 11, resource: shc.createView() }] });
+  { binding: 9, resource: tSV.createView() }, { binding: 10, resource: tMSc.createView() }, { binding: 11, resource: shc.createView() }, { binding: 12, resource: tRoad.createView() }] });
 const bg0 = mkBG0(ubo, tShadow, tShadowC), bg0s = mkBG0(uboS, tDummy, tDummy), bg0c = mkBG0(uboC, tDummy, tDummy);
 for (let c = 0; c < 3; c++) UB[80 + c] = UBS[80 + c] = AMBUP[c];
 const pl0 = device.createPipelineLayout({ bindGroupLayouts: [bgl0] });
@@ -307,6 +308,7 @@ const BIRD = meshes[NSOLID];
 Q.writeTexture({ texture: tVol }, Wd.volD, { bytesPerRow: NX, rowsPerImage: NY / 2 }, [NX / 2, NY / 2, NZ / 2]);
 Q.writeTexture({ texture: tNear }, Wd.nm, { bytesPerRow: NX * 4 }, [NX, NZ]);
 Q.writeTexture({ texture: tFar }, Wd.fmap, { bytesPerRow: FN * 4 }, [FN, FN]);
+Q.writeTexture({ texture: tRoad }, Wd.roadMask, { bytesPerRow: 1024 }, [1024, 1024]);
 // mesh distance bands for the near cell stores: trunks, dates, basalt small, basalt large, granite, pebbles
 const CELLD = [400, 400, 400, 80, 110, 400, 400, 45];
 
