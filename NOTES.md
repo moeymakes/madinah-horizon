@@ -4,7 +4,13 @@ Built with the `worldsmith` skill (`~/.shared/skills/worldsmith`). Brief: `promp
 
 ## State (update after every phase)
 
-- Realism stage 1 BUILT, NOT SHIPPED (branch `realism-s1`, 04d5a40; main untouched). 2026-11-18 13:59-15:37 AEDT.
+- Realism stage 1 SHIPPED 2026-11-18 (main 11c25c5, live byte-identical). Stage 2 on branch `realism-s1` (same
+  branch, continued): palms ac0180e, bounded GI + basalt 8246d13, clouds 02909b3, Prophet's Mosque layout 7439d0a.
+  Stage-2 gate run (verify/s2-final-*): crop clip .07, flatwhite .92 (golden pose 5 2.90, sky glow), brightdetail 66.3;
+  GPU 8.44 / p99 12.46 ms. Six other worlds run realism stages 1-3 in their own sessions (brief:
+  ~/.config/Claude/side-session-notes/local_e46bf3a1-465b-49b7-b617-a09a30fa0fa1/realism-stages-brief.md); every GPU
+  job goes through `flock /tmp/claude-1000/worldsmith-gpu.lock`.
+- (history) Realism stage 1 built (branch `realism-s1`, 04d5a40; main untouched). 2026-11-18 13:59-15:37 AEDT.
   Features (one commit each): GTAO+TAA af664e0, Hillaire sky 83eccb1 (+fix 8977469), near-city massing + static
   city shadow map 62260d8, interior-mapped windows 77ae055 (+fix 156aabc), district tint 30d0e6e, exposure 04d5a40.
   Gates (city crop `--crop 0,.62,1,1`, poses 5+6, 3 times; verify/s1-final-*):
