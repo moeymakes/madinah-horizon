@@ -101,6 +101,16 @@ cd source && npm install && npm run build
 - **[Nabawi Courtyard](https://moeymakes.github.io/masjid-nabawi-courtyard/)**: the marble plaza of the Prophet's Mosque up close, as the great umbrellas open ([source](https://github.com/moeymakes/masjid-nabawi-courtyard))
 - **[Madinah, First Years](https://moeymakes.github.io/madinah-first-years/)**: the oasis and the first mosque around 622-632 CE, an artistic reconstruction ([source](https://github.com/moeymakes/madinah-first-years))
 
+## Data sources
+
+The relief of Mount Uhud and Jabal Ayr and the street network around the Prophet's Mosque come from real data,
+packed into the page by `source/tools/pack-data.py` and placed in the world's composed (not to scale) geography:
+
+- Elevation: Copernicus GLO-30 Digital Elevation Model, (c) DLR e.V. 2010-2014 and (c) Airbus Defence and Space
+  GmbH 2014-2018, provided under COPERNICUS by the European Union and ESA; all rights reserved.
+- Streets and hotel sites: (c) [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), available
+  under the Open Database License (ODbL).
+
 ## License
 
 MIT. Parts adapted from Abyssal Garden (MIT); its notice is in `source/LICENSE-abyssal-garden`.
