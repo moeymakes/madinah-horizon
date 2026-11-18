@@ -515,6 +515,8 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
   let fu = select(i.op.z, i.op.x, abs(on.z) > abs(on.x)); let fv = i.op.y; let wall = 1. - ss(.45, .7, abs(on.y));
   // window grid fades before it can sparkle (derivatives must be taken outside the material branches)
   let wfade = 1. - ss(.25, .6, fwidth(fu / 3.4) + fwidth(fv / 3.3));
+  // rooms behind the glass show while a window is a dozen pixels or more across
+  let ifade = 1. - ss(.08, .25, fwidth(fu) + fwidth(fv));
   if (mat <= 1) {
     let lava = mix(fm.r, nm.g, nk); let gran = mix(fm.g, nm.b, nk); let wadi = nm.r * nk; let irr = nm.a * nk; let city = fm.b * (1. - nk);
     alb = mix(vec3f(.52, .34, .19), vec3f(.64, .45, .27), sat(A.c * .9 + Lg.a * .9 - .55)) * (.7 + .45 * mix(B.h, Lg.b, .45)) * (.84 + .32 * C.c);
@@ -596,7 +598,28 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
       let lint = step(.5 - ww - .05, wx) * step(wx, .5 + ww + .05) * ss(.66, .74, wy) * step(wy, .79) * step(1., flr) * wall * wfade;
       alb = mix(alb, alb * .45, lint * .7);
       alb = mix(alb, alb * vec3f(.82, .8, .78), (1. - wfade) * wall * .5);
-      emi = vec3f(1., .62, .30) * .9 * win * lit * LIGHTS;
+      // interior mapping: intersect the view ray with this window's room (walls, floor, ceiling, back wall) in the
+      // building's own frame, so each window shows a room with depth that shifts with the viewpoint
+      let rdo = qrot(vec4f(-i.q.xyz, i.q.w), normalize(i.wp - g.cam.xyz));
+      let xw = abs(on.z) <= abs(on.x);
+      let rr3 = vec3f(select(rdo.x, rdo.z, xw), rdo.y, max(select(-rdo.z * sign(on.z), -rdo.x * sign(on.x), xw), .02));
+      let ru = fu - bay * bw; let rv = fv - flr * 3.3; let rid = bay * 1.7 + flr * 2.9 + sd * 5.;
+      let dep = mix(3.2, 6., hs(rid));
+      let tu = (select(0., bw, rr3.x > 0.) - ru) / (rr3.x + select(-1e-5, 1e-5, rr3.x >= 0.));
+      let tv = (select(0., 3.3, rr3.y > 0.) - rv) / (rr3.y + select(-1e-5, 1e-5, rr3.y >= 0.));
+      let tw = dep / rr3.z; let tt = min(tu, min(tv, tw));
+      let hp = vec3f(ru, rv, 0.) + rr3 * tt;
+      let wallC = mix(vec3f(.56, .5, .42), vec3f(.4, .45, .48), hs(rid + 3.)) * (.8 + .3 * hs(rid + 7.));
+      var rc = wallC * .85;
+      if (tw <= tu && tw <= tv) { rc = wallC * mix(1., mix(.35, .7, hs(rid + 11.)), step(hp.y, .85) * step(.2, fract(hp.x / bw + hs(rid)))); }
+      else if (tv < tu) { rc = select(vec3f(.72, .7, .66), mix(vec3f(.22, .15, .1), vec3f(.32, .3, .28), hs(rid + 13.)), rr3.y < 0.); }
+      let inner = rc * mix(1., .4, hp.z / dep);
+      let lamp = vec3f(1., .72, .45) * LIGHTS * .17 * (1. + .8 * ss(2.2, 3.3, hp.y)) * mix(1., .6, hp.z / dep);
+      var room = inner * (g.amb.xyz * .3 + lamp * lit);
+      // curtains drawn part way across some windows, glowing when the room is lit
+      let cur = step(.4, hs(rid + 17.)) * hs(rid + 19.) * .8;
+      room = mix(room, mix(vec3f(.62, .55, .45), vec3f(.5, .52, .56), hs(rid + 23.)) * (g.amb.xyz * .2 + lamp * lit * .9), step(1. - cur, abs(wx - .5) / ww));
+      emi = (room * ifade + vec3f(1., .62, .30) * .15 * lit * LIGHTS * (1. - ifade)) * win * (1. - roshan);
       alb = mix(alb, alb * vec3f(.5, .47, .45), ss(.6, .9, on.y));
       gloss = mix(.08, .55, win);
     } else {
@@ -620,7 +643,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     emi += alb * mix(.11, .03, ss(0., 14., fv)) * NIGHT * f32(mat != 17);
   } else if (mat == 8) {
     let rib = ss(.4, .5, abs(fract(atan2(i.op.z, i.op.x) / TAU * 24.) - .5)) * .3;
-    alb = vec3f(.06, .30, .17) * (1. - rib) * (.92 + .16 * B.h); gloss = .5; bump = .05; emi = alb * 1.2 * NIGHT;
+    alb = vec3f(.06, .30, .17) * (1. - rib) * (.92 + .16 * B.h); gloss = .5; bump = .05; emi = alb * vec3f(1.1, .75, .45) * NIGHT;
   } else if (mat == 9) {
     alb = vec3f(.58, .60, .62) * (.9 + .15 * B.h); gloss = .75; metal = .6; bump = .1; emi = alb * .3 * NIGHT;
   } else if (mat == 10) {
@@ -628,7 +651,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
   } else if (mat == 11) {
     // umbrella fabric: off-white membrane in eight panels, the seams a shade darker so the canopy reads as a shape
     let pan = abs(fract(atan2(i.op.z, i.op.x) / TAU * 8.) - .5);
-    alb = vec3f(.66, .65, .62) * (.92 + .1 * B.h) * (1. - .16 * ss(.06, .0, pan)); gloss = .12; bump = .1; emi = vec3f(1., .82, .6) * .07 * NIGHT;
+    alb = vec3f(.54, .53, .5) * (.92 + .1 * B.h) * (1. - .16 * ss(.06, .0, pan)); gloss = .12; bump = .1; emi = vec3f(1., .82, .6) * .07 * NIGHT;
   } else if (mat == 12 || mat == 18) {
     // date palm trunk: spiral of cut leaf bases makes a diamond crosshatch
     let ang = atan2(i.op.z - sd * 37., i.op.x - sd * 37.) / TAU;
