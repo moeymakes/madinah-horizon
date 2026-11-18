@@ -4,6 +4,9 @@ Built with the `worldsmith` skill (`~/.shared/skills/worldsmith`). Brief: `promp
 
 ## State (update after every phase)
 
+- Realism stage 3 SHIPPED 2026-11-19 08:45 AEDT by Moey's decision despite its gate failures (main 8927c62, live
+  byte-identical, sha 4843e61d). Open: bright detail -2.5% vs stage 2 and a critic major (Uhud still generic).
+  README screenshots from verify/s3-dem-t1. Next if resumed: Uhud ridge detail (gullies, banding) at far range.
 - Realism stage 3 STOPPED with a gate report (2026-11-18 ~21:30 AEDT), not shipped; live stays at stage 2.
   On branch `realism-s1`: real Uhud/Ayr relief from Copernicus GLO-30 (3551cdb, data in src/data.js via
   tools/pack-data.py; downloads in /home/moey/Dev/research/madinah-horizon-data/, approved by Moey for all worlds).
