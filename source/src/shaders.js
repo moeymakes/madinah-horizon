@@ -146,6 +146,136 @@ const W_FS = /*wgsl*/`
 @vertex fn vs(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f { return vec4f(f32(i32(i & 1u) * 4 - 1), f32(i32(i >> 1u) * 4 - 1), 0., 1.); }
 `;
 
+// ---------------------------------------------------------------- physically based atmosphere (Hillaire 2020)
+// Rayleigh + Mie + ozone in km, Earth radius 6360 km. Madinah sits ~600 m up in dusty desert air, so the Mie
+// (aerosol) density is a few times the clear-sky value and its absorption leans blue, which is what makes the haze
+// warm. The same media drive the sun colour (CPU, below), the sky (LUTs, main.js) and the aerial perspective.
+const ATM = { turb: [7, 5, 12][TOD], alt: .62 };
+const ATM_BR = [5.802e-3, 13.558e-3, 33.1e-3], ATM_BO = [.65e-3, 1.881e-3, .085e-3];
+const ATM_BMS = 3.996e-3 * ATM.turb, ATM_BME = [4.5e-3, 4.75e-3, 5.2e-3].map((v) => v * ATM.turb);
+const SUNV = TP.sun.map((c) => c / hypot(...TP.sun));
+// sun transmittance from altitude h (km) to space, integrated on the CPU with the same media as the LUTs
+const atmT = (h) => {
+  const N = 600, r0 = 6360 + h, mu = SUNV[1], R2 = 6460 * 6460;
+  const tmax = -r0 * mu + sqrt(r0 * r0 * (mu * mu - 1) + R2), dt = tmax / N, od = [0, 0, 0];
+  for (let i = 0; i < N; i++) {
+    const t = (i + .5) * dt, x = t * sqrt(1 - mu * mu), y = r0 + t * mu, hh = hypot(x, y) - 6360;
+    const dr = exp(-hh / 8), dm = exp(-hh / 1.2), dz = max(0, 1 - abs(hh - 25) / 15);
+    for (let c = 0; c < 3; c++) od[c] += (ATM_BR[c] * dr + ATM_BME[c] * dm + ATM_BO[c] * dz) * dt;
+  }
+  return od.map((v) => exp(-v));
+};
+// the solar scale keeps each preset's sun brightness; the hue now comes from the air it passes through. At night the
+// moon gets a blue Purkinje tint, as the eye sees moonlight, so the night keeps its look.
+const ATM_TS = atmT(ATM.alt), ATM_T6 = atmT(6), lum3 = (v) => v[0] * .2126 + v[1] * .7152 + v[2] * .0722;
+const ATM_NT = TP.night ? [.62, .78, 1.3] : [1, 1, 1];
+const ATM_S = lum3(TP.sunc) / lum3(ATM_TS);
+const SUNCP = ATM_TS.map((v, c) => v * ATM_S * ATM_NT[c]), CLOUDSUN = ATM_T6.map((v, c) => v * ATM_S * ATM_NT[c]);
+const f3 = (v) => v.map((x) => x.toPrecision(5)).join(', ');
+const W_ATMC = /*wgsl*/`
+const RG = 6360.; const RT = 6460.; const HR = 8.; const HM = 1.2; const MG = .76;
+const BR = vec3f(${f3(ATM_BR)}); const BO = vec3f(${f3(ATM_BO)});
+const BMS = vec3f(${ATM_BMS.toPrecision(5)}); const BME = vec3f(${f3(ATM_BME)});
+const SUNL = vec3f(${f3(SUNV)}); const ALT = ${ATM.alt};
+const PI = 3.1415927;
+struct Md { sr: vec3f, sm: vec3f, e: vec3f };
+fn medium(h: f32) -> Md {
+  let dr = exp(-h / HR); let dm = exp(-h / HM);
+  return Md(BR * dr, BMS * dm, BR * dr + BME * dm + BO * max(0., 1. - abs(h - 25.) / 15.));
+}
+fn phR(mu: f32) -> f32 { return .0596831 * (1. + mu * mu); }
+fn phG(mu: f32, g: f32) -> f32 { let g2 = g * g; return .1193662 * (1. - g2) * (1. + mu * mu) / ((2. + g2) * pow(max(1. + g2 - 2. * g * mu, 1e-4), 1.5)); }
+fn phM(mu: f32) -> f32 { return phG(mu, MG); }
+fn tUV(r: f32, mu: f32) -> vec2f {
+  let H = sqrt(RT * RT - RG * RG); let rho = sqrt(max(r * r - RG * RG, 0.));
+  let d = max(-r * mu + sqrt(max(r * r * (mu * mu - 1.) + RT * RT, 0.)), 0.);
+  let dmin = RT - r; let dmax = rho + H;
+  return vec2f((d - dmin) / (dmax - dmin), rho / H);
+}
+// sky-view LUT: u = azimuth from the sun's vertical plane (0..pi, the sky is symmetric about it), v = elevation,
+// squeezed toward the horizon where the colour changes fastest
+fn svUV(rd: vec3f) -> vec2f {
+  let h = vec2f(rd.x, rd.z); let s = vec2f(SUNL.x, SUNL.z);
+  let az = acos(clamp(dot(h, s) / max(length(h) * length(s), 1e-5), -1., 1.)) / PI;
+  let e = asin(clamp(rd.y, -1., 1.)) / (PI * .5);
+  return vec2f(az, .5 + .5 * sign(e) * sqrt(abs(e)));
+}
+`;
+// LUT passes, run once at load (the sun does not move)
+const W_ATMLUT = W_FS + W_ATMC + /*wgsl*/`
+@group(0) @binding(0) var tT: texture_2d<f32>;
+@group(0) @binding(1) var tM: texture_2d<f32>;
+@group(0) @binding(2) var sL: sampler;
+fn trans(r: f32, mu: f32) -> vec3f {
+  if (mu < 0. && r * r * (mu * mu - 1.) + RG * RG >= 0.) { return vec3f(0.); }
+  return textureSampleLevel(tT, sL, tUV(r, mu), 0.).rgb;
+}
+fn hitR(r: f32, mu: f32, R: f32) -> f32 { let d = r * r * (mu * mu - 1.) + R * R; return select(-1., -r * mu - sqrt(max(d, 0.)), d >= 0.); }
+fn tmaxOf(r: f32, mu: f32) -> f32 {
+  let g = hitR(r, mu, RG);
+  if (mu < 0. && g > 0.) { return g; }
+  return -r * mu + sqrt(max(r * r * (mu * mu - 1.) + RT * RT, 0.));
+}
+@fragment fn fsT(@builtin(position) fc: vec4f) -> @location(0) vec4f {
+  let uv = fc.xy / vec2f(256., 64.);
+  let H = sqrt(RT * RT - RG * RG); let rho = H * uv.y; let r = sqrt(rho * rho + RG * RG);
+  let dmin = RT - r; let dmax = rho + H; let d = dmin + uv.x * (dmax - dmin);
+  let mu = clamp(select((H * H - rho * rho - d * d) / (2. * r * d), 1., d <= 0.), -1., 1.);
+  var od = vec3f(0.); let dt = d / 40.;
+  for (var i = 0; i < 40; i++) {
+    let t = (f32(i) + .5) * dt; let hh = sqrt(r * r + t * t + 2. * r * mu * t) - RG;
+    od += medium(hh).e * dt;
+  }
+  return vec4f(exp(-od), 1.);
+}
+// multiple scattering (Hillaire 2020 sec. 5.5): second-order light from 64 directions, as a geometric series
+@fragment fn fsM(@builtin(position) fc: vec4f) -> @location(0) vec4f {
+  let uv = fc.xy / 32.; let mus = uv.x * 2. - 1.; let r = RG + uv.y * (RT - RG) + .01;
+  let sd = vec3f(sqrt(1. - mus * mus), mus, 0.);
+  var L2 = vec3f(0.); var fm = vec3f(0.);
+  for (var i = 0; i < 8; i++) { for (var j = 0; j < 8; j++) {
+    let th = PI * 2. * (f32(i) + .5) / 8.; let ph = acos(1. - 2. * (f32(j) + .5) / 8.);
+    let rd = vec3f(cos(th) * sin(ph), cos(ph), sin(th) * sin(ph));
+    let tm = tmaxOf(r, rd.y); let dt = tm / 20.;
+    var T = vec3f(1.); var L = vec3f(0.); var f = vec3f(0.);
+    for (var k = 0; k < 20; k++) {
+      let p = vec3f(0., r, 0.) + rd * (f32(k) + .5) * dt; let pr = length(p);
+      let m = medium(pr - RG); let s = m.sr + m.sm; let e = max(m.e, vec3f(1e-7));
+      let st = trans(pr, dot(p / pr, sd));
+      let x = (vec3f(1.) - exp(-e * dt)) / e;
+      L += T * s * st * .0795775 * x; f += T * s * x;
+      T *= exp(-e * dt);
+    }
+    if (hitR(r, rd.y, RG) > 0. && rd.y < 0.) {
+      let gp = vec3f(0., r, 0.) + rd * tm; let gn = normalize(gp);
+      L += T * trans(RG, dot(gn, sd)) * max(dot(gn, sd), 0.) * .3 / PI;
+    }
+    L2 += L / 64.; fm += f / 64.;
+  } }
+  return vec4f(L2 / (vec3f(1.) - fm), 1.);
+}
+@fragment fn fsS(@builtin(position) fc: vec4f) -> @location(0) vec4f {
+  let uv = fc.xy / vec2f(192., 108.);
+  let az = uv.x * PI; let v = uv.y * 2. - 1.; let e = sign(v) * v * v * PI * .5;
+  let sh = normalize(vec2f(SUNL.x, SUNL.z)); let ch = vec2f(-sh.y, sh.x);
+  let hd = sh * cos(az) + ch * sin(az);
+  let rd = vec3f(hd.x * cos(e), sin(e), hd.y * cos(e));
+  let r = RG + ALT; let tm = tmaxOf(r, rd.y); let mu = dot(rd, SUNL);
+  let pR = phR(mu); let pM = phM(mu);
+  var T = vec3f(1.); var L = vec3f(0.); var t0 = 0.;
+  for (var k = 0; k < 40; k++) {
+    let t1 = tm * pow((f32(k) + 1.) / 40., 2.); let dt = t1 - t0; let t = (t0 + t1) * .5; t0 = t1;
+    let p = vec3f(0., r, 0.) + rd * t; let pr = length(p); let up = p / pr;
+    let m = medium(pr - RG); let e = max(m.e, vec3f(1e-7));
+    let ms = textureSampleLevel(tM, sL, vec2f(dot(up, SUNL) * .5 + .5, (pr - RG) / (RT - RG)), 0.).rgb;
+    let S = (m.sr * pR + m.sm * pM) * trans(pr, dot(up, SUNL)) + (m.sr + m.sm) * ms;
+    L += T * S * (vec3f(1.) - exp(-e * dt)) / e;
+    T *= exp(-e * dt);
+  }
+  return vec4f(L, 1.);
+}
+`;
+
 // surface detail texture (tileable): rg = slope, b = height, a = mottling
 const W_DETAIL = W_SS + W_NOISE + W_FS + /*wgsl*/`
 fn hp(p: vec2f, per: f32) -> f32 { return h31(vec3f(p - per * floor(p / per), per)); }
@@ -213,15 +343,14 @@ fn kar(c: vec3f) -> vec4f { let w = 1. / (1. + max(c.r, max(c.g, c.b))); return 
 // ---------------------------------------------------------------- shared: uniforms, sky, air
 const S_G = /*wgsl*/`
 // pvp: last frame's unjittered view-projection; jit: xy this frame's projection jitter in NDC, z history reset (1), w frame
-struct G { vp: mat4x4f, sm: mat4x4f, cam: vec4f, right: vec4f, up: vec4f, fwd: vec4f, sun: vec4f, res: vec4f, mis: vec4f, pvp: mat4x4f, jit: vec4f };
-const SUNC = vec3f(${TP.sunc.join(', ')});
-const ZEN = vec3f(${TP.zen.join(', ')});
-const WARMH = vec3f(${TP.warm.join(', ')}); const COOLH = vec3f(${TP.cool.join(', ')}); const BAND = vec3f(${TP.band.join(', ')});
-const BOUNCE = vec3f(${TP.bounce.join(', ')}); const AMB0 = vec3f(${TP.amb.join(', ')}); const FARBLUE = vec3f(${TP.farblue.join(', ')}); const CLOUDC = vec3f(${TP.cloud.join(', ')});
+// amb: sky light on an up-facing white surface, integrated from the sky-view LUT at load
+struct G { vp: mat4x4f, sm: mat4x4f, cam: vec4f, right: vec4f, up: vec4f, fwd: vec4f, sun: vec4f, res: vec4f, mis: vec4f, pvp: mat4x4f, jit: vec4f, amb: vec4f };
+const SUNC = vec3f(${f3(SUNCP)}); const CLOUDSUN = vec3f(${f3(CLOUDSUN)});
+// sky radiance per unit of the LUT: pi * solar scale, because surfaces here take SUNC as irradiance / pi
+const SKYS = vec3f(${f3(ATM_NT.map((v) => v * ATM_S * PI * (TP.night ? .25 : 1)))});
+const BAND = vec3f(${TP.band.join(', ')});
+const BOUNCE = vec3f(${TP.bounce.join(', ')}); const AMB0 = vec3f(${TP.amb.join(', ')});
 const LIGHTS = ${TP.lights}; const LITF = ${TP.litf}; const NIGHT = ${TP.night}.;
-const HOR = vec3f(.98, .66, .42);
-const BETA = vec3f(.75e-4, .9e-4, 1.15e-4);
-const HSCALE = 300.;
 const TAU = 6.2831853;
 const LUMA = vec3f(.2126, .7152, .0722);
 const NEARH = 256.;
@@ -231,32 +360,6 @@ fn ss(a: f32, b: f32, x: f32) -> f32 { let t = clamp((x - a) / (b - a), 0., 1.);
 fn ign(p: vec2f) -> f32 { return fract(52.9829189 * fract(dot(p, vec2f(.06711056, .00583715)))); }
 fn hs(x: f32) -> f32 { return fract(sin(x * 127.1) * 43758.5453); }
 fn fin(c: vec3f) -> vec4f { return vec4f(min(max(c, vec3f(0.)), vec3f(60.)), 1.); }
-// sky radiance in direction rd: blue overhead, warm along the horizon on the sun's side, violet-grey opposite
-fn skyCol(rd: vec3f, sun: vec3f) -> vec3f {
-  let y = max(rd.y, 0.);
-  let h = vec2f(rd.x, rd.z); let hl = max(length(h), 1e-4);
-  let tw = .5 + .5 * dot(h / hl, normalize(sun.xz));
-  let mu = dot(rd, sun);
-  let hor = mix(COOLH, WARMH, tw * tw);
-  var c = mix(hor, ZEN, pow(y, .5));
-  c += BAND * .35 * pow(sat(1. - y * 4.), 3.) * mix(tw * tw * tw, .4 + .6 * sat(-rd.z * .8 + .5), NIGHT);
-  c += SUNC * (.04 * pow(max(mu, 0.), 5.) + .12 * pow(max(mu, 0.), 40.) + .3 * pow(max(mu, 0.), 500.));
-  return mix(c, mix(vec3f(.46, .46, .5), vec3f(1., .66, .4), tw), sat(-rd.y * 5.));
-}
-// aerial perspective: exponential-height haze integrated in closed form along the view ray; distant things
-// fade to the sky's horizon colour in their direction (warm toward the sun, cool away from it)
-struct Air { t: vec3f, i: vec3f };
-fn airAt(cam: vec3f, wp: vec3f, sun: vec3f) -> Air {
-  let v = wp - cam; let d = max(length(v), 1e-3); let rd = v / d;
-  let k = rd.y / HSCALE;
-  let od = select((1. - exp(-k * d)) / k, d, abs(k) < 1e-7) * exp(-max(cam.y, -30.) / HSCALE);
-  let k2 = rd.y / 70.;
-  let od2 = select((1. - exp(-k2 * d)) / k2, d, abs(k2) < 1e-7) * exp(-max(cam.y, -30.) / 70.);
-  let T = exp(-BETA * od - vec3f(.8e-4, .86e-4, .95e-4) * od2);
-  let ins = mix(skyCol(normalize(vec3f(rd.x, max(rd.y, 0.) * .3 + .012, rd.z)), sun), FARBLUE, ss(900., 6000., d) * .55);
-  return Air(T, ins * (1. - T));
-}
-fn aerialAt(c: vec3f, cam: vec3f, wp: vec3f, sun: vec3f) -> vec3f { let a = airAt(cam, wp, sun); return c * a.t + a.i; }
 fn qrot(q: vec4f, v: vec3f) -> vec3f { return v + 2. * cross(q.xyz, cross(q.xyz, v) + q.w * v); }
 // palms sway as a whole from the root: the same offset moves trunk tops and their fronds together
 fn palmSway(b: vec2f, h: f32, t: f32) -> vec2f {
@@ -266,7 +369,7 @@ fn palmSway(b: vec2f, h: f32, t: f32) -> vec2f {
 }
 `;
 
-const S_B = S_G + /*wgsl*/`
+const S_B = S_G + W_ATMC + /*wgsl*/`
 @group(0) @binding(0) var<uniform> g: G;
 @group(0) @binding(1) var sR: sampler;
 @group(0) @binding(2) var sC: sampler;
@@ -276,6 +379,36 @@ const S_B = S_G + /*wgsl*/`
 @group(0) @binding(6) var tV: texture_3d<f32>;
 @group(0) @binding(7) var tN: texture_2d<f32>;
 @group(0) @binding(8) var tF: texture_2d<f32>;
+@group(0) @binding(9) var tSV: texture_2d<f32>;
+@group(0) @binding(10) var tMS: texture_2d<f32>;
+// sky radiance in direction rd, from the sky-view LUT; at night the city's light dome glows low on the horizon
+fn skyCol(rd: vec3f, sun: vec3f) -> vec3f {
+  var c = textureSampleLevel(tSV, sC, svUV(rd), 0.).rgb * SKYS;
+  c += BAND * .35 * pow(sat(1. - max(rd.y, 0.) * 4.), 3.) * (.4 + .6 * sat(-rd.z * .8 + .5)) * NIGHT;
+  return c;
+}
+// aerial perspective from the same media, in closed form: optical depth of each exponential layer along the ray,
+// single scattering of the sun (Rayleigh and Mie phase) plus the LUT's multiple scattering, and a 70 m dust layer
+// over the ground. Far away it hands over to the sky LUT so the horizon has no seam.
+struct Air { t: vec3f, i: vec3f };
+const DUST = vec3f(.8e-4, .86e-4, .95e-4);
+fn airAt(cam: vec3f, wp: vec3f, sun: vec3f) -> Air {
+  let v = wp - cam; let d = max(length(v), 1e-3); let rd = v / d;
+  let hc = max(cam.y, -30.) * 1e-3 + ALT; let dk = d * 1e-3;
+  let kr = rd.y / HR; let km = rd.y / HM; let k2 = rd.y / 70.;
+  let odR = select((1. - exp(-kr * dk)) / kr, dk, abs(kr) < 1e-6) * exp(-hc / HR);
+  let odM = select((1. - exp(-km * dk)) / km, dk, abs(km) < 1e-6) * exp(-hc / HM);
+  let od2 = select((1. - exp(-k2 * d)) / k2, d, abs(k2) < 1e-7) * exp(-max(cam.y, -30.) / 70.);
+  let sR = BR * odR; let sM = BMS * odM; let sD = DUST * .9 * od2;
+  let tau = sR + BME * odM + DUST * od2;
+  let T = exp(-tau);
+  let mu = dot(rd, sun);
+  let ms = textureSampleLevel(tMS, sC, vec2f(sun.y * .5 + .5, ALT / (RT - RG)), 0.).rgb;
+  var ins = (SUNC * PI * (sR * phR(mu) + sM * phM(mu) + sD * phG(mu, .45)) + SKYS * ms * (sR + sM + sD)) * (vec3f(1.) - T) / max(tau, vec3f(1e-7));
+  ins = mix(ins, skyCol(normalize(vec3f(rd.x, max(rd.y, 0.) * .3 + .012, rd.z)), sun) * (vec3f(1.) - T), ss(4000., 16000., d));
+  return Air(T, ins);
+}
+fn aerialAt(c: vec3f, cam: vec3f, wp: vec3f, sun: vec3f) -> vec3f { let a = airAt(cam, wp, sun); return c * a.t + a.i; }
 fn nearK(p: vec3f) -> f32 { return 1. - ss(NEARH - 12., NEARH - 2., max(abs(p.x), abs(p.z))); }
 fn shUV(p: vec3f) -> vec3f { let s = g.sm * vec4f(p, 1.); return vec3f(s.x * .5 + .5, .5 - s.y * .5, s.z - .0004); }
 fn shadow1(p: vec3f) -> f32 {
@@ -295,7 +428,7 @@ fn vol(p: vec3f) -> vec2f {
 }
 fn amb(n: vec3f, sky: f32) -> vec3f {
   let up = n.y * .5 + .5;
-  return (mix(ZEN, vec3f(.36, .32, .34) * ZEN.b / .58, .35) * 1.1 * up * up + BOUNCE * .36 * (1. - up) + AMB0) * (.3 + .7 * sky);
+  return (g.amb.xyz * up * up + BOUNCE * .36 * (1. - up) + AMB0) * (.3 + .7 * sky);
 }
 fn aerial(c: vec3f, wp: vec3f) -> vec3f { return aerialAt(c, g.cam.xyz, wp, g.sun.xyz); }
 // second target: the share of the pixel's light that is ambient (sky and bounce), so screen-space AO can darken
@@ -385,7 +518,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     let marble = vec3f(.86, .84, .80) * (1. - .16 * tile) * mix(1., .9, bandM) * (.96 + .06 * B.c);
     let street = mix(vec3f(.36, .35, .35) * (.9 + .15 * C.c), vec3f(.64, .60, .54) * (.9 + .12 * B.c), ss(.4, .65, Lg.a));
     alb = mix(alb, mix(street, marble, ss(.9, .97, city)), ss(.05, .2, city));
-    emi = mix(vec3f(1., .55, .25) * .035 * (.4 + .6 * ss(.4, .7, Lg.a)), vec3f(1., .86, .66) * (.02 + .07 * ss(.5, .1, length(fract(i.wp.xz / 24.) - .5))), ss(.9, .97, city)) * ss(.05, .2, city) * NIGHT;
+    emi = mix(vec3f(1., .55, .25) * .035 * (.4 + .6 * ss(.4, .7, Lg.a)), vec3f(1., .86, .66) * (.025 + .045 * ss(.55, .05, length(fract(i.wp.xz / 24.) - .5))), ss(.9, .97, city)) * ss(.05, .2, city) * NIGHT;
     alb = mix(alb, mix(mix(vec3f(.09, .075, .065), vec3f(.18, .135, .10), A.h) * (.7 + .6 * B.c), vec3f(.42, .30, .19), ss(.6, .8, B.c) * .4), lava * (1. - nk) * .8);
     alb *= mix(1., .6 + .8 * F.h, fk);
     bump = select(1.3, mix(.8, .2, ss(.05, .2, city)), far); gloss = mix(.03, .16, lava * (1. - flt)) * ss(120., 20., dist);
@@ -410,7 +543,8 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     let ct = select(select(select(select(select(vec3f(.60, .51, .38), vec3f(.49, .40, .30), hh > .25), vec3f(.66, .63, .57), hh > .45), vec3f(.52, .38, .27), hh > .62), vec3f(.42, .40, .38), hh > .78), vec3f(.70, .67, .61), hh > .9);
     // real whitewash and pale stone reflect .6-.75 of the light, not .85+; brighter washes every sunlit wall to flat white
     let tone = select(select(vec3f(.70, .69, .66), vec3f(.74, .69, .60), mat == 7), ct, mat == 17);
-    alb = tone * (.86 + .2 * B.h) * (.94 + .1 * C.c);
+    // plaster is never one flat white: trowel marks, patched render and broad dust stains give the eye something to read in full sun
+    alb = tone * (.8 + .3 * B.h) * (.9 + .16 * C.c) * mix(1., .84, ss(.5, .82, A.c)) * (1. - .06 * ss(.4, .7, F.h) * ss(30., 5., dist));
     if (mat == 17) {
       let bw = mix(2.6, 4.6, hs(sd * 11.)); let ww = mix(.18, .34, hs(sd * 13.));
       let wx = fract(fu / bw); let wy = fract(fv / 3.3); let flr = floor(fv / 3.3); let bay = floor(fu / bw);
@@ -455,7 +589,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
       alb = mix(alb, alb * vec3f(.92, .84, .7), band * .6);
     }
     bump = .04;
-    emi += alb * .15 * NIGHT * f32(mat != 17);
+    emi += alb * mix(.11, .03, ss(0., 14., fv)) * NIGHT * f32(mat != 17);
   } else if (mat == 8) {
     let rib = ss(.4, .5, abs(fract(atan2(i.op.z, i.op.x) / TAU * 24.) - .5)) * .3;
     alb = vec3f(.06, .30, .17) * (1. - rib) * (.92 + .16 * B.h); gloss = .5; bump = .05; emi = alb * 1.2 * NIGHT;
@@ -466,7 +600,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
   } else if (mat == 11) {
     // umbrella fabric: off-white membrane in eight panels, the seams a shade darker so the canopy reads as a shape
     let pan = abs(fract(atan2(i.op.z, i.op.x) / TAU * 8.) - .5);
-    alb = vec3f(.66, .65, .62) * (.92 + .1 * B.h) * (1. - .16 * ss(.06, .0, pan)); gloss = .12; bump = .1; emi = vec3f(1., .82, .6) * .12 * NIGHT;
+    alb = vec3f(.66, .65, .62) * (.92 + .1 * B.h) * (1. - .16 * ss(.06, .0, pan)); gloss = .12; bump = .1; emi = vec3f(1., .82, .6) * .07 * NIGHT;
   } else if (mat == 12 || mat == 18) {
     // date palm trunk: spiral of cut leaf bases makes a diamond crosshatch
     let ang = atan2(i.op.z - sd * 37., i.op.x - sd * 37.) / TAU;
@@ -650,7 +784,7 @@ struct VO { @builtin(position) cp: vec4f, @location(0) d: vec3f };
     let r = vec2f(q.x * .96 + q.y * .28, q.y * .96 - q.x * .28) * vec2f(.00011, .00042) + vec2f(g.cam.w * .002, 0.);
     let n = fbm(vec3f(r, 1.3), 5) + .35 * (fbm(vec3f(r * 3.1, 4.1), 3) - .5);
     let cov = ss(.58, .84, n) * ss(.03, .2, rd.y) * (1. - ss(.35, .9, rd.y));
-    let lit = mix(CLOUDC, CLOUDC * vec3f(2., 1.75, 1.2), pow(max(mu, 0.), 3.)) * (.75 + .5 * fbm(vec3f(r * 7., 2.), 2));
+    let lit = (CLOUDSUN * (.05 + .45 * pow(max(mu, 0.), 4.)) + g.amb.xyz * .9) * (.75 + .5 * fbm(vec3f(r * 7., 2.), 2));
     c = mix(c, lit, cov * .5);
   }
   c += mix(SUNC * 9., vec3f(2.4, 2.4, 2.2), NIGHT) * ss(mix(.99988, .99975, NIGHT), mix(.99994, .99982, NIGHT), mu);
@@ -715,7 +849,7 @@ const W_RAYS = S_G + W_FS + /*wgsl*/`
     acc += vis * dust * exp(-t * .004);
   }
   let mu = dot(rd, sx);
-  let gg = .72;
+  let gg = .6;
   let ph = (1. - gg * gg) / pow(1. + gg * gg - 2. * gg * mu, 1.5) * .07 + .1;
   return vec4f(min(SUNC * vec3f(1., .84, .62) * acc * dt * .011 * ph * g.mis.y, vec3f(20.)), zl);
 }

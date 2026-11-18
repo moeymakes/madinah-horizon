@@ -17,7 +17,7 @@ const THIN = 1 << LV, SHADOW = LV ? 2048 : 4096, AA = LV > 1 ? 1 : 4, RAYN = LV 
 let TOD = 1;
 try { const t = localStorage.madinahTime; if (t === '0' || t === '1' || t === '2') TOD = +t; } catch {}
 const TP = [
-  { sun: [.93, .105, -.36], sunc: [2.2, 1.55, 1.15], zen: [.16, .27, .55], warm: [1.25, .78, .58], cool: [.60, .64, .78], band: [1, .55, .45], bounce: [.60, .46, .36], amb: [.10, .085, .08], farblue: [.56, .64, .80], cloud: [1.3, .82, .78], expo: .95, rays: .8, lights: .2, litf: .95, night: 0, birds: 1.4 },
-  { sun: [-.93, .158, .37], sunc: [2.9, 2.1, 1.35], zen: [.10, .24, .58], warm: [1.35, .84, .44], cool: [.74, .68, .66], band: [1, .5, .2], bounce: [.66, .46, .30], amb: [.10, .08, .065], farblue: [.56, .64, .80], cloud: [1.2, .74, .52], expo: .74, rays: 1, lights: 1, litf: .86, night: 0, birds: 1 },
-  { sun: [.45, .62, .64], sunc: [.17, .2, .29], zen: [.004, .008, .022], warm: [.06, .05, .055], cool: [.025, .03, .045], band: [.32, .17, .07], bounce: [.035, .035, .045], amb: [.01, .011, .016], farblue: [.03, .035, .05], cloud: [.03, .035, .05], expo: 2.6, rays: 0, lights: 6, litf: .3, night: 1, birds: .15 },
+  { sun: [.93, .105, -.36], sunc: [2.2, 1.55, 1.15], band: [1, .55, .45], bounce: [.60, .46, .36], amb: [.10, .085, .08], expo: .8, rays: .8, lights: .2, litf: .95, night: 0, birds: 1.4 },
+  { sun: [-.93, .158, .37], sunc: [2.9, 2.1, 1.35], band: [1, .5, .2], bounce: [.66, .46, .30], amb: [.10, .08, .065], expo: .64, rays: .75, lights: 1, litf: .86, night: 0, birds: 1 },
+  { sun: [.45, .62, .64], sunc: [.17, .2, .29], band: [.32, .17, .07], bounce: [.035, .035, .045], amb: [.01, .011, .016], expo: 2.6, rays: 0, lights: 6, litf: .3, night: 1, birds: .15 },
 ][TOD];
