@@ -862,6 +862,21 @@ struct VO { @builtin(position) cp: vec4f, @location(0) d: vec3f };
     let lit = (CLOUDSUN * (.05 + .45 * pow(max(mu, 0.), 4.)) + g.amb.xyz * .9) * (.75 + .5 * fbm(vec3f(r * 7., 2.), 2));
     c = mix(c, lit, cov * .5);
   }
+  // scattered altocumulus 3 km up: density from fbm on the cloud plane, self-shadowed by sampling the density a
+  // little toward the sun, lit by the sun as it is at that height plus sky light, fading into the sky with distance
+  if (rd.y > .008) {
+    let tpl = (3000. - g.cam.y) / rd.y;
+    let pp = g.cam.xz + rd.xz * tpl;
+    let uv = pp * .00013 + vec2f(g.cam.w * .0008, g.cam.w * .0003);
+    let dn = fbm(vec3f(uv, 4.2), 5) + .25 * (fbm(vec3f(uv * 3.3, 7.7), 3) - .5);
+    let cov = ss(.57, .76, dn) * ss(.008, .06, rd.y) * ss(70000., 20000., tpl);
+    if (cov > .001) {
+      let dl = fbm(vec3f(uv + normalize(L.xz) * .05, 4.2), 4);
+      let sh = exp(-ss(.5, .85, dl) * 2.4);
+      let lit = CLOUDSUN * (.22 + 1.1 * pow(max(mu, 0.), 4.)) * sh + g.amb.xyz * (.8 + .4 * ss(.6, .9, dn));
+      c = mix(c, mix(lit, c, ss(15000., 70000., tpl) * .7), cov * .92);
+    }
+  }
   c += mix(SUNC * 9., vec3f(2.4, 2.4, 2.2), NIGHT) * ss(mix(.99988, .99975, NIGHT), mix(.99994, .99982, NIGHT), mu);
   // stars: one soft point per sky cell, a pixel or two wide, so they hold still as the camera moves
   if (NIGHT > .5 && rd.y > 0.) {
