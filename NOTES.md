@@ -4,6 +4,10 @@ Built with the `worldsmith` skill (`~/.shared/skills/worldsmith`). Brief: `promp
 
 ## State (update after every phase)
 
+- Realism stage 2 SHIPPED 2026-11-18 ~16:45 AEDT (main 666dcce, live byte-identical; GPU 8.44 / p99 12.46 ms; 0 errors
+  3 times x 3 levels; critic still major on out-of-scope items: grid city layout, strap-like fronds, Uhud relief,
+  flat canal water; rock interior visible in flight frame 10 predates stage 2). Next: stage 3 (real DEM terrain,
+  OSM layout, photo-calibrated colours) on branch `realism-s1`. Paused at 100% of the 5-hour window (resets 19:00).
 - Realism stage 1 SHIPPED 2026-11-18 (main 11c25c5, live byte-identical). Stage 2 on branch `realism-s1` (same
   branch, continued): palms ac0180e, bounded GI + basalt 8246d13, clouds 02909b3, Prophet's Mosque layout 7439d0a.
   Stage-2 gate run (verify/s2-final-*): crop clip .07, flatwhite .92 (golden pose 5 2.90, sky glow), brightdetail 66.3;
