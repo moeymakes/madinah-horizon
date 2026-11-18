@@ -566,7 +566,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     alb = mix(alb, mix(street, marble, ss(.9, .97, city)), ss(.05, .2, city));
     // the real street network around the Haram (OpenStreetMap): asphalt with dust drifted to the kerbs
     let rq = (i.wp.xz - vec2f(0., -1150.)) / 2800. + .5;
-    let road = select(0., textureSampleLevel(tRd, sC, rq, 0.).r, all(rq > vec2f(0.)) && all(rq < vec2f(1.))) * (1. - ss(.85, .95, city));
+    let road = select(0., textureSampleLevel(tRd, sC, rq, 0.).r, all(rq > vec2f(0.)) && all(rq < vec2f(1.))) * (1. - ss(.85, .95, city)) * ss(.05, .2, city);
     alb = mix(alb, mix(vec3f(.2, .195, .19), vec3f(.36, .33, .28), ss(.3, .7, Lg.a) * .45) * (.85 + .3 * C.c), road);
     emi = mix(vec3f(1., .55, .25) * .035 * (.4 + .6 * ss(.4, .7, Lg.a)), vec3f(1., .86, .66) * (.025 + .045 * ss(.55, .05, length(fract(i.wp.xz / 24.) - .5))), ss(.9, .97, city)) * ss(.05, .2, city) * NIGHT;
     alb = mix(alb, mix(mix(vec3f(.09, .075, .065), vec3f(.18, .135, .10), A.h) * (.7 + .6 * B.c), vec3f(.42, .30, .19), ss(.6, .8, B.c) * .4), lava * (1. - nk) * .8);
