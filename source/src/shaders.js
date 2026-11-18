@@ -505,6 +505,10 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
   let A = tri(i.op, on, .07 * ts); let B = tri(i.op, on, .31 * ts); let C = tri(i.op, on, 1.3 * ts); let F = tri(i.op, on, 5.1 * ts);
   let fk = ss(14., 2., dist) * f32(mat <= 4);
   let Lg = textureSample(tD, sR, i.wp.xz * .0045 + .31);
+  // districts: two very low-frequency lookups (1.4 and 3.2 km periods) give whole neighbourhoods a shared age
+  // (grime, darker roofs, dust in the streets) and tone (warm ochre, cool grey, fresh whitewash)
+  let D1 = textureSample(tD, sR, i.wp.xz * .0007 + .17); let D2 = textureSample(tD, sR, i.wp.xz * .00031 + .63);
+  let dAge = ss(.38, .66, D1.a * .6 + D2.b * .4); let dTone = ss(.3, .7, D2.a); let dWash = ss(.62, .78, D1.b);
   let nm = textureSample(tN, sC, i.wp.xz / 512. + .5);
   let fm = textureSample(tF, sC, i.wp.xz / 24000. + .5);
   let rpW = textureSample(tD, sR, i.wp.xz * .7 + vec2f(g.cam.w * .03, 0.)).rg * 2. - 1.;
@@ -534,7 +538,8 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     let tile = 1. - ss(.0, .05, min(abs(fract(i.wp.x / 6.) - .5), abs(fract(i.wp.z / 6.) - .5)) * 2. - .86);
     let bandM = ss(.45, .5, abs(fract(i.wp.z / 30.) - .5));
     let marble = vec3f(.86, .84, .80) * (1. - .16 * tile) * mix(1., .9, bandM) * (.96 + .06 * B.c);
-    let street = mix(vec3f(.36, .35, .35) * (.9 + .15 * C.c), vec3f(.64, .60, .54) * (.9 + .12 * B.c), ss(.4, .65, Lg.a));
+    // asphalt and paving between the blocks, dustier in the old districts
+    let street = mix(vec3f(.17, .165, .16) * (.85 + .3 * C.c), vec3f(.5, .46, .4) * (.9 + .12 * B.c), ss(.45, .7, Lg.a + dAge * .3));
     alb = mix(alb, mix(street, marble, ss(.9, .97, city)), ss(.05, .2, city));
     emi = mix(vec3f(1., .55, .25) * .035 * (.4 + .6 * ss(.4, .7, Lg.a)), vec3f(1., .86, .66) * (.025 + .045 * ss(.55, .05, length(fract(i.wp.xz / 24.) - .5))), ss(.9, .97, city)) * ss(.05, .2, city) * NIGHT;
     alb = mix(alb, mix(mix(vec3f(.09, .075, .065), vec3f(.18, .135, .10), A.h) * (.7 + .6 * B.c), vec3f(.42, .30, .19), ss(.6, .8, B.c) * .4), lava * (1. - nk) * .8);
@@ -563,6 +568,10 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
     let tone = select(select(vec3f(.70, .69, .66), vec3f(.74, .69, .60), mat == 7), ct, mat == 17);
     // plaster is never one flat white: trowel marks, patched render and broad dust stains give the eye something to read in full sun
     alb = tone * (.8 + .3 * B.h) * (.9 + .16 * C.c) * mix(1., .84, ss(.5, .82, A.c)) * (1. - .06 * ss(.4, .7, F.h) * ss(30., 5., dist));
+    if (mat == 17) {
+      alb = mix(alb * mix(vec3f(.93, .96, 1.02), vec3f(1.07, .98, .84), dTone), vec3f(.68, .66, .62) * (.92 + .1 * B.h), dWash * .7);
+      alb *= mix(1., .8, dAge * (1. - dWash));
+    }
     // near-city parts tagged in the vertex aux: carved wood, metal and plastic, bare concrete
     let sub = i.ao;
     if (mat == 17 && sub < -.1) {
@@ -593,7 +602,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
       alb *= mix(.72, 1., ss(0., 3.5, fv + 1.5 * C.h));
       // grime washed down from the window sills, strongest just below each opening
       let streak = ss(.5, .9, hs(floor(fu * 2.3) * 7.1 + sd * 3.) * (.7 + .6 * B.h)) * ss(.3, .0, wy) * step(1., flr) * wall * wfade;
-      alb *= 1. - .22 * streak * (.6 + .4 * hs(bay * 5.1 + sd));
+      alb *= 1. - (.16 + .22 * dAge) * streak * (.6 + .4 * hs(bay * 5.1 + sd));
       // the window reveal: the lintel shades the top of the opening, the sill catches light below it
       let lint = step(.5 - ww - .05, wx) * step(wx, .5 + ww + .05) * ss(.66, .74, wy) * step(wy, .79) * step(1., flr) * wall * wfade;
       alb = mix(alb, alb * .45, lint * .7);
@@ -620,7 +629,7 @@ fn arcade(u: f32, v: f32, bw: f32, ah: f32, v0: f32) -> f32 {
       let cur = step(.4, hs(rid + 17.)) * hs(rid + 19.) * .8;
       room = mix(room, mix(vec3f(.62, .55, .45), vec3f(.5, .52, .56), hs(rid + 23.)) * (g.amb.xyz * .2 + lamp * lit * .9), step(1. - cur, abs(wx - .5) / ww));
       emi = (room * ifade + vec3f(1., .62, .30) * .15 * lit * LIGHTS * (1. - ifade)) * win * (1. - roshan);
-      alb = mix(alb, alb * vec3f(.5, .47, .45), ss(.6, .9, on.y));
+      alb = mix(alb, alb * mix(vec3f(.55, .52, .5), vec3f(.4, .37, .34), dAge), ss(.6, .9, on.y));
       gloss = mix(.08, .55, win);
     } else {
       let bw = select(4.2, 6.5, mat == 7);
