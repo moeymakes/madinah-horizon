@@ -144,6 +144,8 @@ const domeProf = (r, drum, point = 1.12) => {
   return p;
 };
 function meshDome(r, drum) { const m = new Mesh(); lathe(m, domeProf(r, drum), 24); return m; }
+// the two inner courtyards: x half-ranges (inner, outer) and z range, local units (each ~36 x 54 m, six umbrellas)
+const NB_CX = [5.8, 34.6], NB_CY = [58, 101.2];
 // Masjid an-Nabawi minaret: square base, three octagonal stages with balconies, a lantern and a cap
 const MINARET_N = [[3.3, 20], [3.3, 50], [4.4, 50.4], [4.4, 52], [3, 52.4], [3, 68], [4, 68.4], [4, 70], [2.5, 70.4], [2.5, 80], [3.4, 80.4], [3.4, 81.8], [2.1, 82.2], [2.1, 86], [2.35, 86.2], [2.2, 87.8], [1.3, 89.8], [.3, 91.3], [0, 91.5]];
 const MINARET_Q = [[1.9, 12], [1.9, 30], [2.5, 30.3], [2.5, 31.3], [1.7, 31.6], [1.7, 39.5], [1.95, 39.8], [1.75, 41.2], [1, 43.3], [.2, 44.8], [0, 45]];
@@ -170,18 +172,33 @@ function meshFinial(s) {
 // the south with the Green Dome in its south-east, gate blocks on the north front
 function meshNabawi() {
   const m = new Mesh();
-  box(m, -150, 0, -230, 150, 18, 110);
+  // the hall is built around the two open courtyards north of the old (Ottoman) mosque; local units x1.25 = m
+  box(m, -150, 0, -230, 150, 18, NB_CY[0]);
+  for (const [x0, x1] of [[-150, -NB_CX[1]], [-NB_CX[0], NB_CX[0]], [NB_CX[1], 150]]) box(m, x0, 0, NB_CY[0], x1, 18, NB_CY[1]);
+  box(m, -150, 0, NB_CY[1], 150, 18, 110);
   box(m, -150, 0, 110, -75, 18, 190); box(m, 75, 0, 110, 150, 18, 190);
   box(m, -75, 0, 110, 75, 13, 190);
   box(m, -32, 0, -237, 32, 24, -228); box(m, -153, 0, -60, -146, 22, -20); box(m, 146, 0, -60, 153, 22, -20);
-  box(m, -150.5, 18, -230.5, 150.5, 19.2, 110.5);
+  box(m, -150.5, 18, -230.5, 150.5, 19.2, NB_CY[0]);
+  for (const [x0, x1] of [[-150.5, -NB_CX[1]], [-NB_CX[0], NB_CX[0]], [NB_CX[1], 150.5]]) box(m, x0, 18, NB_CY[0], x1, 19.2, NB_CY[1]);
+  box(m, -150.5, 18, NB_CY[1], 150.5, 19.2, 110.5);
   for (const z of [-180, -110, -40, 30]) for (const s of [-1, 1]) box(m, s * 150 - (s > 0 ? 0 : 3.5), 0, z - 7, s * 150 + (s > 0 ? 3.5 : 0), 23, z + 7);
   for (const x of [-110, -70, 70, 110]) box(m, x - 7, 0, -233.5, x + 7, 23, -230);
   return m;
 }
+// the 27 sliding domes of the 1980s-90s expansion, each on a square base over a light well (Arab News; Saudi
+// Gazette), and the field of small lead domes over the old Ottoman mosque around the Green Dome
 function meshNabawiDomes() {
   const m = new Mesh();
-  for (const x of [-100, -60, -20, 20, 60, 100]) for (const z of [-180, -120, -60, 0, 60]) lathe(m, domeProf(7.5, 1.2, 1), 16, x, 19.2, z);
+  for (let i = 0; i < 9; i++) for (const z of [-195, -135, -75]) {
+    const x = -120 + i * 30;
+    box(m, x - 7.6, 19.2, z - 7.6, x + 7.6, 20.4, z + 7.6);
+    lathe(m, domeProf(7.2, .3, 1), 16, x, 20.4, z);
+  }
+  for (let x = -70; x <= 70; x += 8.75) for (let z = 117; z <= 186; z += 8.6) {
+    if (hypot(x - 40, z - 142) < 15) continue;
+    lathe(m, domeProf(2.9, .4, 1.05), 10, x, 13, z);
+  }
   return m;
 }
 function meshGreenDome() { const m = new Mesh(); lathe(m, [[8.6, 0], [8.6, 3], [8.2, 3.4], ...domeProf(7.6, 5, 1.18).map(([r, h]) => [r, h + 3.4])], 28); return m; }
@@ -480,6 +497,11 @@ function makeWorld(D, T, NA, FAR, flyPts) {
   for (const [x, z, s] of [[-150, -230, 1], [150, -230, 1], [-150, 110, 1], [150, 110, 1], [-25, -237, 1], [25, -237, 1], [-75, 190, .7], [75, 190, .7], [-75, 110, .66], [75, 110, .66]]) {
     solid(12, MOSQ[0] + x * MS, my, MOSQ[1] + z * MS, s * MS, yawQ(PI / 8), 7, .5, 0, 0);
     solid(17, MOSQ[0] + x * MS, my + 91.3 * s * MS, MOSQ[1] + z * MS, 1.6 * s * MS, Q0, 10, 0, 0, 0);
+  }
+  // the twelve convertible umbrellas of the inner courtyards (1992), about 17 x 18 m each (Tensinet)
+  for (const sx of [-1, 1]) for (let i = 0; i < 2; i++) for (let j = 0; j < 3; j++) {
+    const x = sx * (NB_CX[0] + 7.2 + i * 14.4), z = NB_CY[0] + 7.2 + j * 14.4;
+    solid(13, MOSQ[0] + x * MS, my, MOSQ[1] + z * MS, MS * .576, Q0, 11, .37 + .1 * i + .2 * j, 0, 0);
   }
   for (let x = -240; x <= 240; x += 40) for (let z = -320; z <= 320; z += 40) {
     const lx = x, lz = z - 20;
