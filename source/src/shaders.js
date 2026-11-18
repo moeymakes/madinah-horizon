@@ -735,7 +735,13 @@ fn grassSway(p: vec2f, h: f32, t: f32) -> vec2f {
   var col = vec3f(0.); var pr = vec4f(0.); var shp = 0.; var fold = 0.;
   let palm = ty == 0 || ty == 1 || ty == 5;
   switch ty {
-    case 0 { col = mix(vec3f(.09, .14, .035), vec3f(.18, .20, .055), s1); pr = vec4f(1., .55, 0., 0.); fold = .5; }
+    case 0 {
+      // date palm fronds are glaucous grey-green, not lime; each palm (keyed by its crown) has its own tint and
+      // its own share of yellowing fronds
+      let ph = hs(i.a.x * .37 + i.a.z * .71);
+      col = mix(vec3f(.12, .135, .09), vec3f(.2, .21, .15), s1) * mix(vec3f(.9, .97, 1.06), vec3f(1.1, 1., .78), ph);
+      col = mix(col, vec3f(.30, .22, .11) * (.8 + .4 * s1), step(s2, ph * .22) * .75);
+      pr = vec4f(1., .55, 0., 0.); fold = .5; }
     case 1 { col = mix(vec3f(.20, .14, .075), vec3f(.28, .20, .10), s1); pr = vec4f(1., .3, 0., 0.); fold = .3; }
     case 2 { col = mix(vec3f(.24, .27, .08), vec3f(.42, .38, .14), s1); pr = vec4f(0., .8, 0., 0.); }
     case 3 { col = mix(vec3f(.20, .21, .14), vec3f(.28, .23, .13), s1); pr = vec4f(0., .4, 0., 0.); }
@@ -786,13 +792,15 @@ fn leafCov(i: LO) -> f32 {
   let E = SUNC * mix(shadow1(i.wp + L * .6), 1., .3);
   let ndl = dot(n, L);
   var alb = i.col * (.7 + .3 * ss(0., .3, abs(i.uv.x))) * mix(.75, 1.1, i.uv.y) * (.6 + .8 * lt.b) * (.75 + .5 * lt.a);
+  // sun-dried tips on palm fronds
+  alb = mix(alb, vec3f(.24, .17, .09) * (.8 + .4 * lt.a), ss(.8, 1., i.uv.y) * (.25 + .55 * i.sd.y) * step(.5, i.pr.x));
   let tr = (max(-ndl, 0.) * .9 + .25) * i.pr.y;
-  let trc = alb * vec3f(1.2, 1.25, .55);
+  let trc = alb * vec3f(1.05, 1.3, .75);
   let aov = sat((vv.x - .5) * 5.);
   let am = (amb(n, vv.y) + amb(-n, vv.y) * i.pr.y * .45) * (.35 + .65 * aov);
   var c = E * (alb * max(ndl, 0.) + trc * tr) + alb * am;
   let H = normalize(V + L);
-  c += E * pow(sat(dot(n, H)), 30.) * .25;
+  c += E * pow(sat(dot(n, H)), 18.) * .12;
   c += E * trc * i.pr.y * pow(sat(dot(-V, L)), 4.) * .8;
   return outA(c, alb * am, i.wp, alpha);
 }
